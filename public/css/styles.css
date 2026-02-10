@@ -1,9 +1,0 @@
-body{
-    font-family:'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
-    font-size: 3.0rem;
-    min-height: 100vh;
-    background-color: royalblue;
-    color:aliceblue;
-    display: grid;
-    place-content: center;
-}
