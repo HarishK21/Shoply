@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate  } from 'react-router-dom'
 import './Auth.css'
 
 function Login() {
+  const navigate = useNavigate()
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -26,7 +27,10 @@ function Login() {
       })
       
       const result = await response.json()
-      alert(result.message)
+      // store logged in user (useful later)
+      localStorage.setItem('user', JSON.stringify(result.user))
+      // go to home page
+      navigate('/home')
     } catch (error) {
       console.error('Error:', error)
       alert('Login failed')
