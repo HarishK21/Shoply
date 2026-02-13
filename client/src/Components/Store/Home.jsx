@@ -87,22 +87,48 @@ export default function Home() {
                 No items found
             </div>
             ) : (
-            <div className="grid">
-                {filtered.map((item) => (
-                <div key={item.id} className="card">
-                    <h3 className="card__name">{item.name}</h3>
+              <div className="grid">
+              {filtered.map((item) => (
+              <div key={item.id} className="card">
+                  {/* NEW: Image thumbnail */}
+                  <div style={{
+                      height: '180px',
+                      marginBottom: '10px',
+                      background: 'rgba(255,255,255,0.02)',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      overflow: 'hidden'
+                  }}>
+                      {item.hasImage ? (
+                          <img 
+                              src={item.imageURL.startsWith('http') ? item.imageURL : `${window.location.origin}${item.imageURL}`}
+                              alt={item.name}
+                              style={{
+                                  maxWidth: '100%',
+                                  maxHeight: '100%',
+                                  objectFit: 'contain'
+                              }}
+                              onError={(e) => { e.target.style.display = 'none'; }} 
+                          />
+                      ) : (
+                          <div style={{ color: 'var(--home-subtext)', fontSize: '0.8rem' }}>No Image</div>
+                      )}
+                  </div>
 
-                    <div className="card__meta">
-                    <div className="card__price">${item.price}</div>
-                    <div className="badge">id {item.id}</div>
-                    </div>
+                  <h3 className="card__name">{item.name}</h3>
 
-                    <Link className="card__link" to={`/product/${item.id}`}>
-                    View Details
-                    </Link>
-                </div>
-                ))}
-            </div>
+                  <div className="card__meta">
+                      <div className="card__price">${item.price}</div>
+                  </div>
+
+                  <Link className="card__link" to={`/product/${item.id}`}>
+                      View Details
+                  </Link>
+              </div>
+              ))}
+          </div>
         )}
       </main>
 
