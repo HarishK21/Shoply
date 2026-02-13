@@ -1,7 +1,8 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import Login from './Components/Auth/Login'
 import Register from './Components/Auth/Register'
-import Home from './Home'
+import Home from './Components/Store/Home'
+import ProductDetails from './Components/Store/ProductDetails'
 
 function App() {
   return (
@@ -12,7 +13,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/home" element={<Home />} />
         <Route path="/checkout" element={<div style={{ padding: 24, color: "white" }}>Checkout page (WIP)</div>} />
-        <Route path="/product/:id" element={<div style={{ padding: 24, color: "white" }}>Product detail (WIP)</div>} />
+        <Route path="/product/:id" element={<ProductDetails />} />
       </Routes>
     </Router>
   )
