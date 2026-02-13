@@ -42,7 +42,8 @@ let store_items = [
         description: "The iPhone 14 Pro Max features a stunning 6.7-inch Super Retina XDR display, powered by the A16 Bionic chip for lightning-fast performance. With its advanced camera system, including a 48MP main sensor and improved low-light capabilities, it captures breathtaking photos and videos. The device also offers enhanced battery life, 5G connectivity, and a sleek design that combines durability with elegance.",
         postedBy: "James Smith",
         price: 1099.99,
-        hasImage: true
+        hasImage: true,
+        imageURL: ""
     },
     {
         id: 2,
