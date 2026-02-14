@@ -53,6 +53,10 @@ In the future, additional functionality could be added, for example, a seperatio
 
 ## 💭 Reflection
 
+Overall, this was our very first full stack React + Express + Node.js of this scale. It was quite the exciting experience being able to utilize the stack we learned to create a functional E-Commerce platform. Being able to use React + Express really simplifies and makes the code more modular and reusable compared to plain HTML, CSS and JavaScript. 
+<br>
+Along the way we had many different challenges and successes, mainly with the setup process and the final integration with all the components and the JSON file. Though, in the end, with a little bit of patience, thinking, and collaberation we were able to overcome these issues and create a working product. Overall, this was a great experience for us all, and we were all able to contribute well and learn along the way while making this project.
+
 ## 💡 Future Enhancements
 - Separation of permissions (Admin, User)
 - Cleaner UI
