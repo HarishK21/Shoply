@@ -40,11 +40,11 @@ In the future, additional functionality could be added, for example, a seperatio
 ## 🏗️ Documentation
 1. Clone the repository: `git clone https://github.com/HarishK21/E-CommercePlatform.git` or for SSH setup: `git clone git@github.com:HarishK21/E-CommercePlatform.git`
 2. Open a terminal inside the E-CommercePlatform folder.
-3. Move into the Server Directory with `cd server`.
-4. Run the commands `npm install`, followed by `node server.js`.
-5. Open a second terminal inside the E-CommercePlatform folder
-6. Move into the Client Directory with `cd client`.
-7. Run the commands `npm install`, followed by `npm run dev`.
+3. Move into the Client Directory with `cd client`.
+4. Run the commands `npm install`, followed by `npm run dev`.
+5. Open a second terminal without closing the first one, inside the E-CommercePlatform folder
+6. Move into the Server Directory with `cd server`.
+7. Run the commands `npm install`, followed by `node server.js`.
 8. Access the web application by clicking on the localhost url provided by the terminal.
 9. Create an account and use the account to sign in, or use the test login email: `admin521@gmail.com`, password: `521admin521`
 10. To reset items state, CTRL+C the server terminal and rerun it with `node server.js` .
