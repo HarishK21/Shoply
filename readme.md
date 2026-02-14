@@ -1,5 +1,6 @@
 <h1>Shoply E-Commerce Site</h1>
 
+<img width="2891" height="1626" alt="image" src="https://github.com/user-attachments/assets/8bc1e344-ee39-40e8-8f70-216f5df7d808" />
 
 ## 📜 Overview
 Shoply is a community-driven e-commerce platform for buying and selling a large variety of items on the our market. Users can create listings for products, buy products from listings. Admins can manage items and delete them if necessary. 
@@ -8,6 +9,7 @@ In the future, additional functionality could be added, for example, a seperatio
 
 
 <hr>
+
 
 
 ## 🧑‍💻 Team Members
@@ -43,7 +45,7 @@ In the future, additional functionality could be added, for example, a seperatio
 5. Open a second terminal inside the E-CommercePlatform folder
 6. Move into the Client Directory with `cd client`.
 7. Run the commands `npm install`, followed by `npm run dev`.
-8. Access the web application by clicking on the localhost url provided by the terminal: `http://localhost:5173/`
+8. Access the web application by clicking on the localhost url provided by the terminal.
 9. Create an account and use the account to sign in, or use the test login email: `admin521@gmail.com`, password: `521admin521`
 10. To reset items state, CTRL+C the server terminal and rerun it with `node server.js` .
 
