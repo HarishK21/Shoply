@@ -22,5 +22,11 @@
     "name": "Admin",
     "email": "admin@gmail.com",
     "password": "admin123"
+  },
+  {
+    "id": 5,
+    "name": "Test",
+    "email": "unique_verify_2026@demo.com",
+    "password": "password"
   }
 ]

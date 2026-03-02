@@ -4,6 +4,7 @@ import Register from './Components/Auth/Register'
 import Home from './Components/Store/Home'
 import ProductDetails from './Components/Store/ProductDetails'
 import Checkout from './Components/Checkout/Checkout'
+import NotFound from './Components/NotFound'
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         <Route path="/home" element={<Home />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/product/:id" element={<ProductDetails />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>
   )

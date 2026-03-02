@@ -2,7 +2,10 @@ const express = require('express');
 const app = express();
 const path = require('path');
 const cors = require('cors');
-const fs = require('fs');
+const mongoose = require('mongoose');
+
+const Item = require('./models/Item');
+const User = require('./models/User');
 
 const PORT = 8080;
 
@@ -12,32 +15,18 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Paths to JSON files
-const usersFilePath = path.join(__dirname, 'data', 'users.json');
+// MongoDB Connection
+mongoose.connect('mongodb://localhost:27017/Shoply')
+    .then(() => {
+        console.log('Connected to MongoDB (Shoply database)');
+        seedDatabase();
+    })
+    .catch((err) => console.error('MongoDB connection error:', err));
 
-// Helper functions to read/write JSON files
-const readUsers = () => {
-    try {
-        const data = fs.readFileSync(usersFilePath, 'utf8');
-        return JSON.parse(data);
-    } catch (error) {
-        return [];
-    }
-};
 
-const writeUsers = (users) => {
-    fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
-};
-
-// Health check
-app.get('/', (req, res) => {
-    res.json({ status: 'ok', message: 'Shoply API is running' });
-});
-
-// Store items array, posts and deletes will reset on server restart.
-let store_items = [
+// Initial data to seed if DB is empty
+const initialItems = [
     {
-        id: 1,
         name: "Apple iPhone 14 Pro Max",
         description: "The iPhone 14 Pro Max features a stunning 6.7-inch Super Retina XDR display, powered by the A16 Bionic chip for lightning-fast performance. With its advanced camera system, including a 48MP main sensor and improved low-light capabilities, it captures breathtaking photos and videos. The device also offers enhanced battery life, 5G connectivity, and a sleek design that combines durability with elegance.",
         postedBy: "James Smith",
@@ -46,7 +35,6 @@ let store_items = [
         imageURL: "/images/products/1.jpg"
     },
     {
-        id: 2,
         name: "Samsung Galaxy S23 Ultra",
         description: "The Samsung Galaxy S23 Ultra boasts a 6.8-inch Dynamic AMOLED display with a 120Hz refresh rate, delivering vibrant visuals and smooth scrolling. Powered by the Exynos 2200 or Snapdragon 8 Gen 1 processor, it offers exceptional performance for gaming and multitasking. The phone features a versatile quad-camera setup, including a 108MP main sensor, and supports 5G connectivity for fast data speeds. With its sleek design and long-lasting battery, the Galaxy S23 Ultra is a top-tier flagship device.",
         postedBy: "Emily Johnson",
@@ -55,7 +43,6 @@ let store_items = [
         imageURL: "/images/products/2.jpg"
     },
     {
-        id: 3,
         name: "Stussy x Nike Air Force 1 Low",
         description: "The Stussy x Nike Air Force 1 Low is a highly sought-after collaboration between the iconic streetwear brand Stussy and Nike. This limited-edition sneaker features a classic Air Force 1 silhouette with premium materials and unique design elements. The shoe boasts a clean white leather upper with subtle Stussy branding, including the signature S logo on the heel and tongue. With its timeless style and exclusive collaboration, the Stussy x Nike Air Force 1 Low is a must-have for sneaker enthusiasts and collectors.",
         postedBy: "Harish Sagar",
@@ -64,7 +51,6 @@ let store_items = [
         imageURL: "/images/products/3.webp"
     },
     {
-        id: 4,
         name: "Sony WH-1000XM4 Wireless Noise-Canceling Headphones",
         description: "The Sony WH-1000XM4 headphones offer industry-leading noise cancellation, providing an immersive listening experience. With up to 30 hours of battery life and quick charging capabilities, you can enjoy your music all day long. The headphones feature a comfortable design with plush ear cups and adaptive sound control that adjusts to your environment. Additionally, they support high-resolution audio and have a built-in microphone for clear calls. Whether you're commuting, working, or relaxing, the Sony WH-1000XM4 is the perfect companion for your audio needs.",
         postedBy: "Michael Brown",
@@ -73,7 +59,6 @@ let store_items = [
         imageURL: "/images/products/4.jpg"
     },
     {
-        id: 5,
         name: "Nvidia GeForce RTX 5090 Graphics Card",
         description: "The Nvidia GeForce RTX 5090 is a high-performance graphics card designed for gamers and content creators. It features the latest Ampere architecture, delivering exceptional performance and ray tracing capabilities. With its massive 24GB of GDDR6X memory, the RTX 5090 can handle even the most demanding games and applications with ease. The card also supports DLSS (Deep Learning Super Sampling) technology, which enhances performance while maintaining visual quality. Whether you're gaming at 4K resolution or working on intensive creative projects, the Nvidia GeForce RTX 5090 is a powerhouse that delivers stunning visuals and smooth performance.",
         postedBy: "Jensen Huang",
@@ -82,7 +67,6 @@ let store_items = [
         imageURL: "/images/products/5.jpg"
     },
     {
-        id: 6,
         name: "Apple MacBook Pro 16-inch (2023)",
         description: "The Apple MacBook Pro 16-inch (2023) is a powerhouse laptop designed for professionals and creatives. It features a stunning Retina display with True Tone technology, providing vibrant colors and sharp details. Powered by the M2 Pro or M2 Max chip, it delivers exceptional performance for demanding tasks such as video editing, 3D rendering, and software development. The MacBook Pro also offers an improved keyboard, enhanced thermal management, and a long-lasting battery, making it an ideal choice for those who need a reliable and high-performance machine for their work.",
         postedBy: "Bob Williams",
@@ -91,7 +75,6 @@ let store_items = [
         imageURL: "/images/products/6.jpg"
     },
     {
-        id: 7,
         name: "Sony PlayStation 5",
         description: "The Sony PlayStation 5 is the latest generation of gaming console, offering a powerful gaming experience with its custom AMD Zen 2 processor and RDNA 2 graphics architecture. The PS5 features a sleek design and comes with a new DualSense controller that provides haptic feedback and adaptive triggers for immersive gameplay. With its ultra-fast SSD, the console allows for quick loading times and seamless transitions between games. The PS5 also supports ray tracing, 4K gaming, and backward compatibility with a wide range of PS4 games, making it a must-have for gamers looking to experience the next level of gaming performance.",
         postedBy: "Shawn Layden",
@@ -100,7 +83,6 @@ let store_items = [
         imageURL: "/images/products/7.webp"
     },
     {
-        id: 8,
         name: "Apple AirPods Pro (2nd Generation)",
         description: "The Apple AirPods Pro (2nd Generation) offer an enhanced audio experience with active noise cancellation and a customizable fit. These wireless earbuds feature a new H1 chip that provides improved performance and connectivity. The AirPods Pro also include a transparency mode that allows you to hear your surroundings while still enjoying your music. With up to 4.5 hours of listening time on a single charge and a wireless charging case that provides additional battery life, the AirPods Pro are perfect for on-the-go use and offer seamless integration with Apple devices.",
         postedBy: "Lisa Anderson",
@@ -109,7 +91,6 @@ let store_items = [
         imageURL: "/images/products/8.jpg"
     },
     {
-        id: 9,
         name: "Modern Style Dining Table Set",
         description: "This modern style dining table set features a sleek and minimalist design, perfect for contemporary dining spaces. The set includes a sturdy rectangular table with a smooth surface and four matching chairs with comfortable cushioned seats. The table is made from high-quality materials, ensuring durability and stability, while the chairs provide ergonomic support for long meals and gatherings. With its clean lines and neutral color palette, this dining table set will complement a variety of interior styles and create a stylish and inviting atmosphere in your dining area.",
         postedBy: "Sarah Davis",
@@ -119,140 +100,200 @@ let store_items = [
     }
 ];
 
+// Seed Database Function
+const seedDatabase = async () => {
+    try {
+        const count = await Item.countDocuments();
+        if (count === 0) {
+            console.log('Database empty. Seeding initial items...');
+            // Loop sequentially to ensure auto-increment ID hook works correctly in order
+            for (let i = 0; i < initialItems.length; i++) {
+                const newItem = new Item(initialItems[i]);
+                await newItem.save();
+            }
+            console.log('Database seeded successfully!');
+        } else {
+            console.log(`Database already populated with ${count} items. Skipping seed.`);
+        }
+    } catch (error) {
+        console.error('Error seeding database:', error);
+    }
+};
+
+// Health check
+app.get('/', (req, res) => {
+    res.json({ status: 'ok', message: 'Shoply API is running' });
+});
+
+
 // API Routes
 
 // Get all store items
-app.get('/api/items', (req, res) => {
-    return res.status(200).json(store_items);
+app.get('/api/items', async (req, res) => {
+    try {
+        const items = await Item.find({}).sort({ id: 1 }).lean();
+        return res.status(200).json(items);
+    } catch (error) {
+        console.error('Error fetching items:', error);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
 });
 
 // Get single item
-app.get('/api/items/:id', (req, res) => {
-    const item = store_items.find(i => i.id === parseInt(req.params.id));
-    if (item) {
-        return res.status(200).json(item);
+app.get('/api/items/:id', async (req, res) => {
+    try {
+        const item = await Item.findOne({ id: parseInt(req.params.id) }).lean();
+        if (item) {
+            return res.status(200).json(item);
+        }
+        return res.status(404).json({ success: false, message: 'Item not found' });
+    } catch (error) {
+        console.error('Error fetching item:', error);
+        return res.status(500).json({ success: false, message: 'Server error' });
     }
-
-    return res.status(404).json({ success: false, message: 'Item not found' });
 });
 
 // Create new store item
-app.post('/api/items', (req, res) => {
-    const { name, description, postedBy, price, hasImage, imageURL } = req.body;
+app.post('/api/items', async (req, res) => {
+    try {
+        const { name, description, postedBy, price, hasImage, imageURL } = req.body;
 
-    if (!name || typeof price === 'undefined') {
-        return res.status(400).json({ success: false, message: 'Missing required fields: name, price' });
+        if (!name || typeof price === 'undefined') {
+            return res.status(400).json({ success: false, message: 'Missing required fields: name, price' });
+        }
+
+        const newItem = new Item({
+            name,
+            description: description || '',
+            postedBy: postedBy || 'admin',
+            price: Number(price),
+            hasImage: !!hasImage,
+            imageURL: imageURL || ''
+        });
+
+        await newItem.save();
+        console.log('Item added:', newItem.id, newItem.name);
+
+        // Return lean object
+        const savedItem = await Item.findOne({ id: newItem.id }).lean();
+        return res.status(201).json(savedItem);
+
+    } catch (error) {
+        console.error('Error adding item:', error);
+        return res.status(500).json({ success: false, message: 'Server error' });
     }
-
-    // Auto increment ID based on existing items
-    const nextId = store_items.reduce((max, it) => Math.max(max, it.id), 0) + 1;
-    const newItem = {
-        id: nextId,
-        name,
-        description: description || '',
-        postedBy: postedBy || 'admin',
-        price: Number(price),
-        hasImage: !!hasImage,
-        imageURL: imageURL || ''
-    };
-
-    store_items.push(newItem);
-    console.log('Item added:', newItem.id, newItem.name);
-
-    return res.status(201).json(newItem);
 });
 
 // Update item endpoint
-app.put('/api/items/:id', (req, res) => {
-    const itemId = parseInt(req.params.id);
-    const itemIndex = store_items.findIndex(i => i.id === itemId);
+app.put('/api/items/:id', async (req, res) => {
+    try {
+        const itemId = parseInt(req.params.id);
+        const { name, description, postedBy, price, hasImage, imageURL } = req.body;
 
-    if (itemIndex === -1) {
-        return res.status(404).json({ success: false, message: 'Item not found' });
+        const item = await Item.findOne({ id: itemId });
+
+        if (!item) {
+            return res.status(404).json({ success: false, message: 'Item not found' });
+        }
+
+        // Update only provided fields
+        if (name !== undefined) item.name = name;
+        if (description !== undefined) item.description = description;
+        if (postedBy !== undefined) item.postedBy = postedBy;
+        if (price !== undefined) item.price = Number(price);
+        if (hasImage !== undefined) item.hasImage = !!hasImage;
+        if (imageURL !== undefined) item.imageURL = imageURL;
+
+        await item.save();
+        console.log('Item updated:', itemId, item.name);
+
+        const updatedItem = await Item.findOne({ id: itemId }).lean();
+        return res.status(200).json(updatedItem);
+
+    } catch (error) {
+        console.error('Error updating item:', error);
+        return res.status(500).json({ success: false, message: 'Server error' });
     }
-
-    const { name, description, postedBy, price, hasImage, imageURL } = req.body;
-
-    // Update only provided fields
-    if (name !== undefined) store_items[itemIndex].name = name;
-    if (description !== undefined) store_items[itemIndex].description = description;
-    if (postedBy !== undefined) store_items[itemIndex].postedBy = postedBy;
-    if (price !== undefined) store_items[itemIndex].price = Number(price);
-    if (hasImage !== undefined) store_items[itemIndex].hasImage = !!hasImage;
-    if (imageURL !== undefined) store_items[itemIndex].imageURL = imageURL;
-
-    console.log('Item updated:', itemId, store_items[itemIndex].name);
-    return res.status(200).json(store_items[itemIndex]);
 });
 
 // Delete item endpoint
-app.delete('/api/items/:id', (req, res) => {
-    const itemId = parseInt(req.params.id);
-    const itemIndex = store_items.findIndex(i => i.id === itemId);
+app.delete('/api/items/:id', async (req, res) => {
+    try {
+        const itemId = parseInt(req.params.id);
 
-    if (itemIndex === -1) {
-        return res.status(404).json({ success: false, message: 'Item not found' });
+        const result = await Item.findOneAndDelete({ id: itemId });
+
+        if (!result) {
+            return res.status(404).json({ success: false, message: 'Item not found' });
+        }
+
+        console.log('Item deleted:', itemId, result.name);
+        return res.status(204).end();
+
+    } catch (error) {
+        console.error('Error deleting item:', error);
+        return res.status(500).json({ success: false, message: 'Server error' });
     }
-
-    const deletedItem = store_items.splice(itemIndex, 1);
-    console.log('Item deleted:', itemId, deletedItem[0].name);
-    // Return 204 No Content to indicate successful deletion
-    return res.status(204).end();
 });
 
+
 // Register user endpoint
-app.post('/api/register', (req, res) => {
-    const { name, email, password } = req.body;
+app.post('/api/register', async (req, res) => {
+    try {
+        const { name, email, password } = req.body;
 
-    const users = readUsers();
+        if (!name || !email || !password) {
+            return res.status(400).json({ success: false, message: 'Missing name, email or password' });
+        }
 
-    // Basic input validation
-    if (!name || !email || !password) {
-        return res.status(400).json({ success: false, message: 'Missing name, email or password' });
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(409).json({ success: false, message: 'User already exists' });
+        }
+
+        const newUser = new User({
+            name,
+            email,
+            password
+        });
+
+        await newUser.save();
+
+        console.log('New user registered:', { name, email });
+        return res.status(201).json({ success: true, message: 'Registration successful! You can now login.' });
+
+    } catch (error) {
+        console.error('Registration error:', error);
+        return res.status(500).json({ success: false, message: 'Server error' });
     }
-
-    // Check if user already exists
-    const existingUser = users.find(u => u.email === email);
-    if (existingUser) {
-        // Conflict
-        return res.status(409).json({ success: false, message: 'User already exists' });
-    }
-
-    // Create new user
-    const newUser = {
-        id: users.length + 1,
-        name,
-        email,
-        password
-    };
-
-    users.push(newUser);
-    writeUsers(users);
-
-    console.log('New user registered:', { name, email });
-
-    return res.status(201).json({ success: true, message: 'Registration successful! You can now login.' });
 });
 
 // User login endpoint
-app.post('/api/login', (req, res) => {
-    const { email, password } = req.body;
+app.post('/api/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
 
-    const users = readUsers();
+        const user = await User.findOne({ email, password });
 
-    // Find user
-    const user = users.find(u => u.email === email && u.password === password);
-
-    if (user) {
-        console.log('User logged in:', email);
-        return res.status(200).json({
-            success: true,
-            message: 'Login successful!',
-            user: { id: user.id, name: user.name, email: user.email }
-        });
-    } else {
-        return res.status(401).json({ success: false, message: 'Invalid email or password' });
+        if (user) {
+            console.log('User logged in:', email);
+            return res.status(200).json({
+                success: true,
+                message: 'Login successful!',
+                user: { id: user.id, name: user.name, email: user.email }
+            });
+        } else {
+            return res.status(401).json({ success: false, message: 'Invalid email or password' });
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        return res.status(500).json({ success: false, message: 'Server error' });
     }
+});
+
+// 404 Fallback for unknown API routes
+app.use('/api', (req, res) => {
+    res.status(404).json({ success: false, message: 'API endpoint not found' });
 });
 
 app.listen(PORT, () => {
