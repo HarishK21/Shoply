@@ -29,9 +29,9 @@ const writeUsers = (users) => {
     fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
 };
 
-// Serve index page
+// Health check
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '/views/index.html'));
+    res.json({ status: 'ok', message: 'Shoply API is running' });
 });
 
 // Store items array, posts and deletes will reset on server restart.
@@ -162,15 +162,38 @@ app.post('/api/items', (req, res) => {
     return res.status(201).json(newItem);
 });
 
+// Update item endpoint
+app.put('/api/items/:id', (req, res) => {
+    const itemId = parseInt(req.params.id);
+    const itemIndex = store_items.findIndex(i => i.id === itemId);
+
+    if (itemIndex === -1) {
+        return res.status(404).json({ success: false, message: 'Item not found' });
+    }
+
+    const { name, description, postedBy, price, hasImage, imageURL } = req.body;
+
+    // Update only provided fields
+    if (name !== undefined) store_items[itemIndex].name = name;
+    if (description !== undefined) store_items[itemIndex].description = description;
+    if (postedBy !== undefined) store_items[itemIndex].postedBy = postedBy;
+    if (price !== undefined) store_items[itemIndex].price = Number(price);
+    if (hasImage !== undefined) store_items[itemIndex].hasImage = !!hasImage;
+    if (imageURL !== undefined) store_items[itemIndex].imageURL = imageURL;
+
+    console.log('Item updated:', itemId, store_items[itemIndex].name);
+    return res.status(200).json(store_items[itemIndex]);
+});
+
 // Delete item endpoint
 app.delete('/api/items/:id', (req, res) => {
     const itemId = parseInt(req.params.id);
     const itemIndex = store_items.findIndex(i => i.id === itemId);
-    
+
     if (itemIndex === -1) {
         return res.status(404).json({ success: false, message: 'Item not found' });
     }
-    
+
     const deletedItem = store_items.splice(itemIndex, 1);
     console.log('Item deleted:', itemId, deletedItem[0].name);
     // Return 204 No Content to indicate successful deletion
@@ -180,9 +203,9 @@ app.delete('/api/items/:id', (req, res) => {
 // Register user endpoint
 app.post('/api/register', (req, res) => {
     const { name, email, password } = req.body;
-    
+
     const users = readUsers();
-    
+
     // Basic input validation
     if (!name || !email || !password) {
         return res.status(400).json({ success: false, message: 'Missing name, email or password' });
@@ -194,36 +217,36 @@ app.post('/api/register', (req, res) => {
         // Conflict
         return res.status(409).json({ success: false, message: 'User already exists' });
     }
-    
+
     // Create new user
     const newUser = {
         id: users.length + 1,
         name,
         email,
-        password 
+        password
     };
-    
+
     users.push(newUser);
     writeUsers(users);
-    
+
     console.log('New user registered:', { name, email });
-    
+
     return res.status(201).json({ success: true, message: 'Registration successful! You can now login.' });
 });
 
 // User login endpoint
 app.post('/api/login', (req, res) => {
     const { email, password } = req.body;
-    
+
     const users = readUsers();
-    
+
     // Find user
     const user = users.find(u => u.email === email && u.password === password);
-    
+
     if (user) {
         console.log('User logged in:', email);
-        return res.status(200).json({ 
-            success: true, 
+        return res.status(200).json({
+            success: true,
             message: 'Login successful!',
             user: { id: user.id, name: user.name, email: user.email }
         });
@@ -232,6 +255,6 @@ app.post('/api/login', (req, res) => {
     }
 });
 
-app.listen(PORT, () => { 
-    console.log("Server has started on port " + PORT); 
+app.listen(PORT, () => {
+    console.log("Server has started on port " + PORT);
 });

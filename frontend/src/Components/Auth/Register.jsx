@@ -19,19 +19,19 @@ function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
     if (formData.password !== formData.confirmPassword) {
       alert('Passwords do not match!')
       return
     }
-    
+
     try {
-      const response = await fetch('http://localhost:8080/api/register', {
+      const response = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       })
-      
+
       const result = await response.json()
       alert(result.message)
     } catch (error) {
@@ -45,7 +45,7 @@ function Register() {
       <div className="auth-card">
         <h2>Create Account</h2>
         <p className="auth-subtitle">Sign up to get started</p>
-        
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Full Name</label>

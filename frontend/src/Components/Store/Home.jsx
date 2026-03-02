@@ -20,7 +20,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    fetch("http://localhost:8080/api/items")
+    fetch("/api/items")
       .then((r) => r.json())
       .then(setItems)
       .catch(console.error);
@@ -74,7 +74,7 @@ export default function Home() {
     }
 
     try {
-      const resp = await fetch('http://localhost:8080/api/items', {
+      const resp = await fetch('/api/items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

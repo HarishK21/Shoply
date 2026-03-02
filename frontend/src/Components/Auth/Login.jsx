@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate  } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import './Auth.css'
 
 function Login() {
@@ -18,9 +18,9 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
     try {
-      const response = await fetch('http://localhost:8080/api/login', {
+      const response = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -48,7 +48,7 @@ function Login() {
       <div className="auth-card">
         <h2>Welcome Back</h2>
         <p className="auth-subtitle">Login to your account</p>
-        
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Email</label>
