@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import './Auth.css'; // Reuse auth center-card styling
+import './Auth/Auth.css'; // Correct relative path
 
 const NotFound = () => {
     const navigate = useNavigate();

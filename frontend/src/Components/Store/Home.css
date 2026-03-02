@@ -98,8 +98,11 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+  gap: 30px;
+  /* Increased gap to prevent cards intersecting during 3D rotation */
   margin-top: 20px;
+  perspective: 1000px;
+  /* Crucial for 3D effect */
 }
 
 .card {
@@ -108,13 +111,18 @@
   border: 1px solid var(--card-border);
   background: var(--card-bg);
   box-shadow: var(--card-shadow);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.1s ease-out;
+  /* Removed all, added specific transforms for smoother 3D */
   display: flex;
   flex-direction: column;
   gap: 10px;
   min-height: 140px;
   position: relative;
   overflow: hidden;
+  transform-style: preserve-3d;
+  /* Required for 3D children */
+  will-change: transform;
+  /* Performance optimization for 3D */
 }
 
 .card::before {
@@ -127,17 +135,58 @@
   background: var(--accent-gradient);
   opacity: 0;
   transition: opacity 0.25s ease;
+  transform: translateZ(1px);
+  /* Elevate highlight in 3D space */
 }
 
+/* 3D Interaction targets - we remove hover transform as JS handles it, keeping only shadow/border change */
 .card:hover {
-  transform: translateY(-4px);
   background: var(--card-hover-bg);
   border-color: var(--card-hover-border);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25), 0 0 0 1px var(--card-hover-border);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--card-hover-border);
 }
 
 .card:hover::before {
   opacity: 1;
+}
+
+/* 3D Inner Elements Depth */
+.card__name {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.3;
+  letter-spacing: -0.2px;
+  transform: translateZ(30px);
+  /* Pops text out during 3D tilt */
+  text-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.card__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transform: translateZ(20px);
+}
+
+.card__price {
+  color: var(--accent-color);
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.card__link {
+  margin-top: auto;
+  text-decoration: none;
+  color: var(--accent-color);
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transform: translateZ(25px);
+  /* Elevate link */
 }
 
 .card__name {

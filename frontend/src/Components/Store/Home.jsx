@@ -186,46 +186,82 @@ export default function Home() {
           </div>
         ) : (
           <div className="grid">
-            {filtered.map((item) => (
-              <div key={item.id} className="card">
-                {/* Image thumbnail */}
-                <div style={{
-                  height: '180px',
-                  marginBottom: '10px',
-                  background: 'rgba(255,255,255,0.02)',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden'
-                }}>
-                  {item.hasImage ? (
-                    <img
-                      src={item.imageURL.startsWith('http') ? item.imageURL : `${window.location.origin}${item.imageURL}`}
-                      alt={item.name}
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '100%',
-                        objectFit: 'contain'
-                      }}
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                  ) : (
-                    <div style={{ color: 'var(--home-subtext)', fontSize: '0.8rem' }}>No Image</div>
-                  )}
+            {filtered.map((item) => {
+              // 3D Tilt calculations
+              const handleMouseMove = (e) => {
+                const card = e.currentTarget;
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left; // x position within the element
+                const y = e.clientY - rect.top;  // y position within the element
+
+                // Calculate center
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+
+                // Max rotation degree
+                const maxRotate = 15;
+
+                // Calculate rotation (inverted so it tilts toward mouse)
+                const rotateX = ((y - centerY) / centerY) * -maxRotate;
+                const rotateY = ((x - centerX) / centerX) * maxRotate;
+
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+              };
+
+              const handleMouseLeave = (e) => {
+                const card = e.currentTarget;
+                // Reset to default on leave
+                card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+              };
+
+              return (
+                <div
+                  key={item.id}
+                  className="card"
+                  onMouseMove={handleMouseMove}
+                  onMouseLeave={handleMouseLeave}
+                >
+                  {/* Image thumbnail */}
+                  <div style={{
+                    height: '180px',
+                    marginBottom: '10px',
+                    background: 'rgba(255,255,255,0.02)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                    transform: 'translateZ(40px)', // Pop out image
+                    transition: 'transform 0.1s ease-out'
+                  }}>
+                    {item.hasImage ? (
+                      <img
+                        src={item.imageURL.startsWith('http') ? item.imageURL : `${window.location.origin}${item.imageURL}`}
+                        alt={item.name}
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '100%',
+                          objectFit: 'contain'
+                        }}
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div style={{ color: 'var(--home-subtext)', fontSize: '0.8rem' }}>No Image</div>
+                    )}
+                  </div>
+
+                  <h3 className="card__name">{item.name}</h3>
+
+                  <div className="card__meta">
+                    <div className="card__price">${item.price}</div>
+                  </div>
+
+                  <Link className="card__link" to={`/product/${item.id}`}>
+                    View Details
+                  </Link>
                 </div>
-
-                <h3 className="card__name">{item.name}</h3>
-
-                <div className="card__meta">
-                  <div className="card__price">${item.price}</div>
-                </div>
-
-                <Link className="card__link" to={`/product/${item.id}`}>
-                  View Details
-                </Link>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </main>
