@@ -1,6 +1,6 @@
 <h1>Shoply E-Commerce Site</h1>
 
-<img width="2891" height="1626" alt="image" src="https://github.com/user-attachments/assets/8bc1e344-ee39-40e8-8f70-216f5df7d808" />
+<img width="1902" height="996" alt="image" src="https://github.com/user-attachments/assets/25f2cf00-b488-40ad-ba96-966dd83d0c03" />
 
 ## 📜 Overview
 Shoply is a community-driven MERN Stack e-commerce platform for buying and selling a large variety of items on the our market. Users can create/edit listings for products, buy products from listings, and view their order history. Admins can manage items and delete them if necessary. 
