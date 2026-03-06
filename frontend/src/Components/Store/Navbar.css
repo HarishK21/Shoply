@@ -140,6 +140,11 @@
   justify-content: center;
 }
 
+.nav__search--hidden {
+  visibility: hidden;   /* bar takes space but not visible */
+  pointer-events: none; 
+}
+
 .nav__search {
   width: 100%;
   max-width: 460px;

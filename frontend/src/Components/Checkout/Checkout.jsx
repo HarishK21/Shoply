@@ -34,6 +34,14 @@ export default function Checkout() {
 
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "null");
+  
+  const subtotal = useMemo(() => {
+    return cart.reduce((sum, item) => sum + Number(item.price) * (item.quantity || 1), 0);
+  }, [cart]);
+  
+  const taxRate = 0.13;
+  const tax = subtotal * taxRate;
+  const total = subtotal + tax;
 
   useEffect(() => {
     if (!user) navigate("/login");
@@ -150,7 +158,7 @@ export default function Checkout() {
     try {
       // Calculate total price
       const totalPrice = cart.reduce((total, item) => {
-        return total + (item.price * (item.quantity || 1));
+        return total + (item.price * (item.quantity || 1) * 1.13);
       }, 0);
 
       // Prepare order data
@@ -265,69 +273,91 @@ export default function Checkout() {
               {cart.length === 0 ? (
                 <div className="checkout__emptyCart">Your cart is empty</div>
               ) : (
-                <div className="checkout__grid">
-                  {cart.map((item) => (
-                    <div key={item.id} className="checkout__card">
-                      {/* Image thumbnail */}
-                      <div className="checkout__card__imageContainer">
-                        {item.hasImage ? (
-                          <img
-                            src={item.imageURL.startsWith('http') ? item.imageURL : `${window.location.origin}${item.imageURL}`}
-                            alt={item.name}
-                            onError={(e) => { e.target.style.display = 'none'; }}
-                          />
-                        ) : (
-                          <div style={{ color: 'var(--checkout-subtext)', fontSize: '0.75rem' }}>No Image</div>
-                        )}
-                      </div>
+                <div className="checkout__leftBody">
+                  <div className="checkout__itemsScroll">
+                    <div className="checkout__grid">
+                      {cart.map((item) => (
+                        <div key={item.id} className="checkout__card">
+                          {/* Image thumbnail */}
+                          <div className="checkout__card__imageContainer">
+                            {item.hasImage ? (
+                              <img
+                                src={item.imageURL.startsWith("http") ? item.imageURL : `${window.location.origin}${item.imageURL}`}
+                                alt={item.name}
+                                onError={(e) => {
+                                  e.target.style.display = "none";
+                                }}
+                              />
+                            ) : (
+                              <div style={{ color: "var(--checkout-subtext)", fontSize: "0.75rem" }}>No Image</div>
+                            )}
+                          </div>
 
-                      {/* Details */}
-                      <div className="checkout__card__details">
-                        <h3 className="checkout__card__name">{item.name}</h3>
+                          {/* Details */}
+                          <div className="checkout__card__details">
+                            <h3 className="checkout__card__name">{item.name}</h3>
 
-                        <div className="checkout__card__meta">
-                          <div className="checkout__card__price">${item.price}</div>
+                            <div className="checkout__card__meta">
+                              <div className="checkout__card__price">${item.price}</div>
+                            </div>
+
+                            <div className="checkout__card__quantity">Qty: {item.quantity || 1}</div>
+
+                            {/* Controls */}
+                            <div className="checkout__card__controls">
+                              <button
+                                className="checkout__card__btn"
+                                onClick={() => updateQuantity(item.id, (item.quantity || 1) - 1)}
+                                title="Decrease quantity"
+                              >
+                                −
+                              </button>
+                              <button
+                                className="checkout__card__btn"
+                                onClick={() => updateQuantity(item.id, (item.quantity || 1) + 1)}
+                                title="Increase quantity"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="checkout__card__actions">
+                            <Link className="checkout__card__link" to={`/product/${item.id}`}>
+                              View
+                            </Link>
+
+                            <button className="checkout__card__delete" onClick={() => removeFromCart(item.id)} title="Delete from cart">
+                              Delete
+                            </button>
+                          </div>
                         </div>
-
-                        <div className="checkout__card__quantity">
-                          Qty: {item.quantity || 1}
-                        </div>
-
-                        {/* Controls */}
-                        <div className="checkout__card__controls">
-                          <button
-                            className="checkout__card__btn"
-                            onClick={() => updateQuantity(item.id, (item.quantity || 1) - 1)}
-                            title="Decrease quantity"
-                          >
-                            −
-                          </button>
-                          <button
-                            className="checkout__card__btn"
-                            onClick={() => updateQuantity(item.id, (item.quantity || 1) + 1)}
-                            title="Increase quantity"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="checkout__card__actions">
-                        <Link className="checkout__card__link" to={`/product/${item.id}`}>
-                          View
-                        </Link>
-
-                        <button
-                          className="checkout__card__delete"
-                          onClick={() => removeFromCart(item.id)}
-                          title="Delete from cart"
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Checkout Total*/}
+                  <div className="checkout__totals">
+                    <div className="checkout__totalsRow">
+                      <span>Subtotal</span>
+                      <span>${subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="checkout__totalsRow">
+                      <span>Estimated Shipping</span>
+                      <span>Free</span>
+                    </div>
+
+                    <div className="checkout__totalsRow">
+                      <span>Estimated Tax (13%)</span>
+                      <span>${tax.toFixed(2)}</span>
+                    </div>
+
+                    <div className="checkout__totalsTotal">
+                      <span className="label">TOTAL</span>
+                      <span className="value">${total.toFixed(2)}</span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
