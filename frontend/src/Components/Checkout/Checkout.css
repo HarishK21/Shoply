@@ -305,7 +305,7 @@
 .checkout__totalsTotal .value {
   font-size: 18px;
   font-weight: 900;
-  color: #050200;
+  color: var(--checkout-subtext);
 }
 
 /* ========== Form ========== */
