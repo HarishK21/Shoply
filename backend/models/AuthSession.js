@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const authSessionSchema = new mongoose.Schema({
     userId: { type: Number, required: true, index: true },
     tokenHash: { type: String, required: true, unique: true, index: true },
-    expiresAt: { type: Date, required: true, index: true }
+    expiresAt: { type: Date, required: true }
 }, { timestamps: true });
 
 // Auto-remove expired sessions from MongoDB.

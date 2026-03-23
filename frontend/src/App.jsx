@@ -6,6 +6,7 @@ import ProductDetails from './Components/Store/ProductDetails'
 import Checkout from './Components/Checkout/Checkout'
 import NotFound from './Components/NotFound'
 import Orders from './Components/Checkout/Orders'
+import Realtime from './Components/Realtime/Realtime'
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
         <Route path="/home" element={<Home />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/orders" element={<Orders />} />
+        <Route path="/realtime" element={<Realtime />} />
         <Route path="/product/:id" element={<ProductDetails />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

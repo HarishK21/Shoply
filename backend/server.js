@@ -1,11 +1,14 @@
 require('dotenv').config();
 
 const crypto = require('crypto');
+const http = require('http');
 const express = require('express');
+const { Server } = require('socket.io');
 
 const connectDB = require('./config/database');
 const seedDatabase = require('./config/seed');
 const setupMiddleware = require('./middleware');
+const setupRealtimeSocket = require('./realtime/socket');
 
 const itemRoutes = require('./routes/items');
 
@@ -16,10 +19,18 @@ const Cart = require('./models/Cart');
 const AuthSession = require('./models/AuthSession');
 
 const app = express();
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, {
+    cors: {
+        origin: true,
+        credentials: true
+    }
+});
 const PORT = Number(process.env.PORT) || 8080;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 
 setupMiddleware(app);
+setupRealtimeSocket(io);
 
 const hashPassword = (password, salt = crypto.randomBytes(16).toString('hex')) => {
     const passwordHash = crypto.scryptSync(password, salt, 64).toString('hex');
@@ -460,7 +471,7 @@ const startServer = async () => {
             console.warn('Warning: MongoDB connection failed. Server will start but database operations may fail.');
         }
 
-        app.listen(PORT, () => {
+        httpServer.listen(PORT, () => {
             console.log('Server has started on port ' + PORT);
         });
     } catch (error) {
