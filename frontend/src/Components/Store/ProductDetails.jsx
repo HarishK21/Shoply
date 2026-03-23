@@ -17,6 +17,7 @@ const ProductDetails = () => {
         name: '',
         description: '',
         postedBy: '',
+        userId: null,
         price: '',
         hasImage: false,
         imageURL: ''
@@ -26,8 +27,8 @@ const ProductDetails = () => {
         return localStorage.getItem("theme") || "dark";
     });
 
-    const user = getStoredUser();
-    const token = getAuthToken();
+    const [user] = useState(() => getStoredUser());
+    const [token] = useState(() => getAuthToken());
 
     const addToCart = async () => {
         try {
@@ -68,6 +69,7 @@ const ProductDetails = () => {
             name: product.name || '',
             description: product.description || '',
             postedBy: product.postedBy || '',
+            userId: product.userId || 0,
             price: product.price || '',
             hasImage: product.hasImage || false,
             imageURL: product.imageURL || ''
@@ -97,6 +99,7 @@ const ProductDetails = () => {
                     name: editData.name,
                     description: editData.description,
                     postedBy: editData.postedBy,
+                    userId: editData.userId,
                     price: Number(editData.price),
                     hasImage: !!editData.hasImage,
                     imageURL: editData.imageURL
@@ -250,23 +253,26 @@ const ProductDetails = () => {
                             <button type="button" className="addToCartBtn" onClick={addToCart} style={{ flex: 1 }}>
                                 🛒 Add to Cart
                             </button>
+                          {(product.userId === user?.id || user?.role === 'admin') && (
                             <button type="button" className="addToCartBtn" onClick={openEditForm} style={{
                                 flex: 1,
                                 background: 'linear-gradient(135deg, #f59e0b, #d97706)',
                                 boxShadow: '0 4px 16px rgba(245, 158, 11, 0.3)'
                             }}>
                                 ✏️ Edit Product
-                            </button>
+                            </button> )}
+                            
                             <button type="button" className="addToCartBtn backBtn" onClick={() => navigate("/home")} style={{ flex: 1 }}>
                                 ← Back to Home
                             </button>
+                            {(product.userId === user?.id || user?.role === 'admin') && (
                             <button type="button" className="addToCartBtn" onClick={deleteProduct} style={{
                                 flex: 1,
                                 background: 'linear-gradient(135deg, #ef4444, #dc2626)',
                                 boxShadow: '0 4px 16px rgba(239, 68, 68, 0.3)'
                             }}>
                                 🗑️ Delete Product
-                            </button>
+                            </button> )}
                         </div>
                     </div>
                 </div>

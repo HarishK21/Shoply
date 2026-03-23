@@ -263,9 +263,49 @@
   transition: all 0.2s ease;
 }
 
-.checkout__card__delete:hover {
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
-  transform: translateY(-1px);
+/* ===== NEW: Totals section pinned at bottom ===== */
+.checkout__totals {
+  margin-top: auto;
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checkout__totalsRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: var(--checkout-subtext);
+}
+
+.checkout__totalsRow strong {
+  color: var(--checkout-text);
+  font-weight: 700;
+}
+
+.checkout__totalsTotal {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--checkout-card-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.checkout__totalsTotal .label {
+  font-size: 13px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--checkout-subtext);
+  font-weight: 700;
+}
+
+.checkout__totalsTotal .value {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--checkout-subtext);
 }
 
 /* ========== Form ========== */

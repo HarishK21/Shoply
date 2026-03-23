@@ -5,6 +5,7 @@ const itemSchema = new mongoose.Schema({
     name: { type: String, required: true },
     description: { type: String, default: '' },
     postedBy: { type: String, default: 'admin' },
+    userId: { type: Number, required: true, ref: 'User' },
     price: { type: Number, required: true },
     hasImage: { type: Boolean, default: false },
     imageURL: { type: String, default: '' },

@@ -7,6 +7,9 @@ import "./Home.css";
 export default function Home() {
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState("");
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+  const [sortBy, setSortBy] = useState("none");
 
   // theme state
   const [theme, setTheme] = useState(() => {
@@ -14,8 +17,8 @@ export default function Home() {
   });
 
   const navigate = useNavigate();
-  const user = getStoredUser();
-  const token = getAuthToken();
+  const [user] = useState(() => getStoredUser());
+  const [token] = useState(() => getAuthToken());
 
   useEffect(() => {
     if (!user || !token) navigate("/login");
@@ -29,10 +32,28 @@ export default function Home() {
   }, []);
 
   const filtered = useMemo(() => {
+    let result = items;
+
+    // Apply search filter
     const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((it) => it.name.toLowerCase().includes(q));
-  }, [items, search]);
+    if (q) {
+      result = result.filter((it) => it.name.toLowerCase().includes(q));
+    }
+
+    // Apply price range filter
+    const minPrice = priceMin === "" ? -Infinity : Number(priceMin);
+    const maxPrice = priceMax === "" ? Infinity : Number(priceMax);
+    result = result.filter((it) => it.price >= minPrice && it.price <= maxPrice);
+
+    // Apply sorting
+    if (sortBy === "price-asc") {
+      result.sort((a, b) => a.price - b.price);
+    } else if (sortBy === "price-desc") {
+      result.sort((a, b) => b.price - a.price);
+    }
+
+    return result;
+  }, [items, search, priceMin, priceMax, sortBy]);
 
   // apply theme to entire page
   useEffect(() => {
@@ -60,6 +81,7 @@ export default function Home() {
     name: '',
     description: '',
     postedBy: '',
+    userId: '',
     price: '',
     hasImage: false,
     imageURL: ''
@@ -88,6 +110,7 @@ export default function Home() {
           name: newItem.name,
           description: newItem.description,
           postedBy: newItem.postedBy,
+          userId: user ? user.id : null,
           price: Number(newItem.price),
           hasImage: !!newItem.hasImage,
           imageURL: newItem.imageURL
@@ -103,7 +126,7 @@ export default function Home() {
       const created = await resp.json();
       // prepend to items list
       setItems((prev) => [created, ...prev]);
-      setNewItem({ name: '', description: '', postedBy: '', price: '', hasImage: false, imageURL: '' });
+      setNewItem({ name: '', description: '', postedBy: '', userId: null, price: '', hasImage: false, imageURL: '' });
       closeAddForm();
     } catch (err) {
       console.error('Error adding item', err);
@@ -186,8 +209,103 @@ export default function Home() {
             </div>
           </div>
         )}
+      
 
-        {filtered.length === 0 && search.trim() !== "" ? (
+        {/* Filter and Sort Controls */}
+        <div style={{
+          display: 'flex',
+          gap: '16px',
+          marginBottom: '24px',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          padding: '12px',
+          border: '1px solid var(--input-border)',
+          borderRadius: '20px',
+          backgroundColor: 'rgba(255,255,255,0.03)'
+        }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <label style={{ fontSize: '0.9rem' }}>Price Range:</label>
+            <input
+              type="number"
+              placeholder="Min"
+              value={priceMin}
+              onChange={(e) => setPriceMin(e.target.value)}
+              style={{
+                width: '80px',
+                padding: '6px 8px',
+                borderRadius: '20px',
+                border: '1px solid var(--input-border)',
+                backgroundColor: 'var(--input-bg)',
+                color: 'var(--home-text)',
+                fontSize: '0.9rem'
+              }}
+            />
+            <span>—</span>
+            <input
+              type="number"
+              placeholder="Max"
+              value={priceMax}
+              onChange={(e) => setPriceMax(e.target.value)}
+              style={{
+                width: '80px',
+                padding: '6px 8px',
+                borderRadius: '20px',
+                border: '1px solid var(--input-border)',
+                backgroundColor: 'var(--input-bg)',
+                color: 'var(--home-text)',
+                fontSize: '0.9rem'
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <label htmlFor="sort-select" style={{ fontSize: '0.9rem' }}>Sort:</label>
+            <select
+              id="sort-select"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{
+                padding: '6px 8px',
+                borderRadius: '20px',
+                border: '1px solid var(--input-border)',
+                backgroundColor: 'var(--input-bg)',
+                color: 'var(--home-text)',
+                cursor: 'pointer',
+                fontSize: '0.9rem'
+              }}
+            >
+              <option style={{ color: 'black' }} value="none">None</option>
+              <option style={{ color: 'black' }} value="price-asc">Price: Low to High</option>
+              <option style={{ color: 'black' }} value="price-desc">Price: High to Low</option>
+            </select>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setPriceMin("");
+              setPriceMax("");
+              setSortBy("none");
+            }}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '20px',
+              border: '1px solid var(--input-border)',
+              backgroundColor: 'rgba(200, 100, 100, 0.15)',
+              color: 'var(--home-text)',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              marginLeft: 'auto',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(200, 100, 100, 0.25)'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(200, 100, 100, 0.15)'}
+          >
+            Clear Filters
+          </button>
+        </div>
+
+        {filtered.length === 0 && (search.trim() !== "" || priceMin !== "" || priceMax !== "" || sortBy !== "none") ? (
           <div className="noResults">
             No items found
           </div>

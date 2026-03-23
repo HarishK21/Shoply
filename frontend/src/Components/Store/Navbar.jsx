@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { fetchCart } from "../../lib/cart";
 import "./Navbar.css";
@@ -6,6 +6,7 @@ import "./Navbar.css";
 export default function Navbar({ user, onLogout, onSearchChange, searchValue }) {
   const navigate = useNavigate();
   const [cartCount, setCartCount] = useState(0);
+  const location = useLocation();
 
   useEffect(() => {
     let isMounted = true;
@@ -52,12 +53,12 @@ export default function Navbar({ user, onLogout, onSearchChange, searchValue }) 
 
           <nav className="nav__links">
             <Link to="/home" className="nav__link">Home</Link>
-            {/* <Link to="/checkout" className="nav__link">Checkout</Link> */}
+            <Link to="/orders" className="nav__link">My Orders</Link>
           </nav>
         </div>
 
         <div className="nav__center">
-          <div className="nav__search">
+          <div className={`nav__search ${location.pathname !== "/home" ? "nav__search--hidden" : ""}`}>
             <span className="nav__searchIcon">⌕</span>
             <input
               className="nav__searchInput"
@@ -67,7 +68,7 @@ export default function Navbar({ user, onLogout, onSearchChange, searchValue }) 
             />
           </div>
         </div>
-
+        
         <div className="nav__right">
           <button className="nav__cart" onClick={() => navigate("/checkout")}>
             <span className="nav__cartIcon">🛒</span>
