@@ -1,101 +1,159 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import './Auth.css'
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import Notice from "../UI/Notice";
+import "./Auth.css";
 
 function Register() {
+  const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [notice, setNotice] = useState({ type: "info", message: "" });
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  })
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: ""
+  });
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    })
-  }
+  const passwordsMatch = useMemo(
+    () => formData.confirmPassword === "" || formData.password === formData.confirmPassword,
+    [formData.confirmPassword, formData.password]
+  );
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const handleChange = (event) => {
+    setNotice({ type: "info", message: "" });
+    setFormData((prev) => ({
+      ...prev,
+      [event.target.name]: event.target.value
+    }));
+  };
 
-    if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match!')
-      return
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setNotice({ type: "info", message: "" });
+
+    if (!passwordsMatch) {
+      setNotice({
+        type: "warning",
+        message: "Passwords do not match. Please confirm your password again."
+      });
+      return;
     }
 
+    if (formData.password.length < 6) {
+      setNotice({
+        type: "warning",
+        message: "Use at least 6 characters for your password."
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      const response = await fetch('/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      })
+      const response = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          password: formData.password
+        })
+      });
 
-      const result = await response.json()
-      alert(result.message)
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setNotice({ type: "error", message: result.message || "Registration failed. Please try again." });
+        return;
+      }
+
+      setNotice({ type: "success", message: "Account created. Redirecting to login..." });
+      setTimeout(() => navigate("/login"), 700);
     } catch (error) {
-      console.error('Error:', error)
-      alert('Registration failed')
+      console.error("Register error:", error);
+      setNotice({
+        type: "error",
+        message: "Unable to reach the server. Please check your connection and try again."
+      });
+    } finally {
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <div className="auth-container">
-      <div className="auth-card">
+      <div className="auth-card" aria-busy={isSubmitting}>
         <h2>Create Account</h2>
-        <p className="auth-subtitle">Sign up to get started</p>
+        <p className="auth-subtitle">Sign up to save your cart and manage orders.</p>
 
-        <form onSubmit={handleSubmit}>
+        <Notice
+          type={notice.type}
+          message={notice.message}
+          onDismiss={notice.message ? () => setNotice({ type: "info", message: "" }) : undefined}
+          compact
+        />
+
+        <form onSubmit={handleSubmit} noValidate>
           <div className="form-group">
-            <label>Full Name</label>
+            <label htmlFor="register-name">Full Name</label>
             <input
+              id="register-name"
               type="text"
               name="name"
               value={formData.name}
               onChange={handleChange}
               placeholder="Enter your full name"
+              autoComplete="name"
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Email</label>
+            <label htmlFor="register-email">Email</label>
             <input
+              id="register-email"
               type="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="Enter your email"
+              placeholder="you@example.com"
+              autoComplete="email"
               required
             />
           </div>
 
           <div className="form-group">
-            <label>Password</label>
+            <label htmlFor="register-password">Password</label>
             <input
+              id="register-password"
               type="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
-              placeholder="Create a password"
+              placeholder="At least 6 characters"
+              autoComplete="new-password"
               required
             />
+            <p className="auth-helpText">Use at least 6 characters.</p>
           </div>
 
           <div className="form-group">
-            <label>Confirm Password</label>
+            <label htmlFor="register-confirm">Confirm Password</label>
             <input
+              id="register-confirm"
               type="password"
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
-              placeholder="Confirm your password"
+              placeholder="Re-enter your password"
+              autoComplete="new-password"
               required
             />
+            {!passwordsMatch && <p className="auth-helpText auth-helpText--error">Passwords do not match.</p>}
           </div>
 
-          <button type="submit" className="auth-button arcade-btn">Create Account</button>
+          <button type="submit" className="auth-button arcade-btn" disabled={isSubmitting}>
+            {isSubmitting ? "Creating account..." : "Create Account"}
+          </button>
         </form>
 
         <p className="auth-footer">
@@ -103,7 +161,7 @@ function Register() {
         </p>
       </div>
     </div>
-  )
+  );
 }
 
-export default Register
+export default Register;

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Notice from "../UI/Notice";
 import Navbar from "../Store/Navbar";
 import { apiFetch, clearAuthSession, getAuthToken, getStoredUser } from "../../lib/auth";
 import "./Orders.css";
@@ -8,59 +9,80 @@ export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("newest");
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
-  // theme state
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("theme") || "dark";
-  });
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
 
   const navigate = useNavigate();
   const [user] = useState(() => getStoredUser());
   const [token] = useState(() => getAuthToken());
 
   useEffect(() => {
-    if (!user || !token) navigate("/login");
+    if (!user || !token) {
+      navigate("/login");
+    }
   }, [navigate, token, user]);
 
-  useEffect(() => {
-    if (!user || !token) return;
+  const loadOrders = useCallback(async () => {
+    if (!user?.id) {
+      return;
+    }
 
-    apiFetch(`/api/orders/${user.id}`)
-      .then((r) => r.json())
-      .then(setOrders)
-      .catch(console.error);
-  }, [token, user]);
+    setIsLoading(true);
+    setLoadError("");
+
+    try {
+      const response = await apiFetch(`/api/orders/${user.id}`);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.message || "Could not load your orders.");
+      }
+      const payload = await response.json();
+      setOrders(Array.isArray(payload) ? payload : []);
+    } catch (error) {
+      console.error("Orders fetch error:", error);
+      setLoadError(error.message || "Could not load your orders.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user || !token) {
+      return;
+    }
+    loadOrders();
+  }, [token, user, loadOrders]);
 
   const filtered = useMemo(() => {
     let result = [...orders];
 
-    // Apply search filter (search by order ID, name, email, or address)
     const q = search.trim().toLowerCase();
     if (q) {
-      result = result.filter((order) => 
-        String(order.id).includes(q) ||
-        order.firstName.toLowerCase().includes(q) ||
-        order.lastName.toLowerCase().includes(q) ||
-        order.email.toLowerCase().includes(q) ||
-        order.address.toLowerCase().includes(q)
-      );
+      result = result.filter((order) => {
+        const idMatch = String(order.id ?? "").includes(q);
+        const firstNameMatch = String(order.firstName ?? "").toLowerCase().includes(q);
+        const lastNameMatch = String(order.lastName ?? "").toLowerCase().includes(q);
+        const emailMatch = String(order.email ?? "").toLowerCase().includes(q);
+        const addressMatch = String(order.address ?? "").toLowerCase().includes(q);
+        return idMatch || firstNameMatch || lastNameMatch || emailMatch || addressMatch;
+      });
     }
 
-    // Apply sorting
     if (sortBy === "newest") {
       result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     } else if (sortBy === "oldest") {
       result.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
     } else if (sortBy === "price-high") {
-      result.sort((a, b) => b.totalPrice - a.totalPrice);
+      result.sort((a, b) => Number(b.totalPrice) - Number(a.totalPrice));
     } else if (sortBy === "price-low") {
-      result.sort((a, b) => a.totalPrice - b.totalPrice);
+      result.sort((a, b) => Number(a.totalPrice) - Number(b.totalPrice));
     }
 
     return result;
   }, [orders, search, sortBy]);
 
-  // apply theme to entire page
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
@@ -77,238 +99,136 @@ export default function Orders() {
   };
 
   const toggleTheme = () => {
-    setTheme((t) => (t === "dark" ? "light" : "dark"));
+    setTheme((current) => (current === "dark" ? "light" : "dark"));
   };
 
+  const clearFilters = () => {
+    setSortBy("newest");
+    setSearch("");
+  };
 
   return (
     <div className="home">
-      <Navbar
-        user={user}
-        onLogout={onLogout}
-        onSearchChange={setSearch}
-        searchValue={search}
-      />
+      <Navbar user={user} onLogout={onLogout} onSearchChange={setSearch} searchValue={search} />
 
       <main className="home__wrap">
         <div className="home__titleRow">
           <div>
             <h1 className="home__title">My Orders</h1>
-            <p className="home__subtitle">Browse your orders and view details.</p>
+            <p className="home__subtitle">Track your purchases and review order details.</p>
           </div>
 
-          {/* RIGHT SIDE: items badge + theme toggle */}
           <div className="home__controls">
-
-            <button
-              type="button"
-              className="themeToggle"
-              onClick={toggleTheme}
-              aria-label="Toggle light mode"
-              title="Toggle light/dark"
-            >
-              <span className="themeToggle__icon">{theme === "dark" ? "🌙" : "☀️"}</span>
+            <button type="button" className="themeToggle" onClick={toggleTheme} aria-label="Toggle light and dark mode">
+              <span className="themeToggle__icon">{theme === "dark" ? "Dark" : "Light"}</span>
               <span className={`themeToggle__track ${theme === "light" ? "isOn" : ""}`}>
                 <span className="themeToggle__thumb" />
               </span>
             </button>
           </div>
         </div>
-      
 
-        {/* Filter and Sort Controls */}
-        <div style={{
-          display: 'flex',
-          gap: '16px',
-          marginBottom: '24px',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          padding: '12px',
-          border: '1px solid var(--input-border)',
-          borderRadius: '8px',
-          backgroundColor: 'rgba(255,255,255,0.03)'
-        }}>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <label htmlFor="sort-select" style={{ fontSize: '0.9rem' }}>Sort:</label>
-            <select
-              id="sort-select"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              style={{
-                padding: '6px 8px',
-                borderRadius: '4px',
-                border: '1px solid var(--input-border)',
-                backgroundColor: 'var(--input-bg)',
-                color: 'var(--home-text)',
-                cursor: 'pointer',
-                fontSize: '0.9rem'
-              }}
-            >
-              <option style={{ color: 'black' }} value="newest">Newest First</option>
-              <option style={{ color: 'black' }} value="oldest">Oldest First</option>
-              <option style={{ color: 'black' }} value="price-high">Total: High to Low</option>
-              <option style={{ color: 'black' }} value="price-low">Total: Low to High</option>
+        <section className="ordersFilterBar" aria-label="Sort and filter orders">
+          <div className="ordersFilterBar__group">
+            <label htmlFor="sort-select">Sort</label>
+            <select id="sort-select" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="price-high">Total: High to Low</option>
+              <option value="price-low">Total: Low to High</option>
             </select>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setSortBy("newest");
-              setSearch("");
-            }}
-            style={{
-              padding: '6px 12px',
-              borderRadius: '4px',
-              border: '1px solid var(--input-border)',
-              backgroundColor: 'rgba(200, 100, 100, 0.15)',
-              color: 'var(--home-text)',
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              marginLeft: 'auto',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(200, 100, 100, 0.25)'}
-            onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(200, 100, 100, 0.15)'}
-          >
+          <button type="button" className="ordersFilterBar__clear" onClick={clearFilters}>
             Clear Filters
           </button>
-        </div>
+        </section>
 
-        {filtered.length === 0 ? (
-          <div className="noResults">
-            {search.trim() !== "" ? "No orders found matching your search" : "You have no orders yet"}
+        {isLoading ? (
+          <div className="home__emptyState">Loading orders...</div>
+        ) : loadError ? (
+          <Notice type="error" message={loadError} actionLabel="Retry" onAction={loadOrders} />
+        ) : filtered.length === 0 ? (
+          <div className="home__emptyState">
+            {search.trim() !== "" ? "No orders match your search." : "You have no orders yet."}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="ordersList">
             {filtered.map((order) => (
-              <div key={order.id} style={{
-                border: '1px solid var(--card-border)',
-                borderRadius: '12px',
-                padding: '20px',
-                backgroundColor: 'var(--card-bg)',
-                boxShadow: 'var(--card-shadow)'
-              }}>
-                {/* Order Header */}
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'start',
-                  marginBottom: '16px',
-                  paddingBottom: '16px',
-                  borderBottom: '1px solid var(--card-border)'
-                }}>
+              <article key={order.id} className="orderCard">
+                <header className="orderCard__header">
                   <div>
-                    <h3 style={{ margin: '0 0 4px 0', color: 'var(--accent-color)' }}>Order #{order.id}</h3>
-                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--home-subtext)' }}>
-                      {new Date(order.createdAt).toLocaleDateString('en-US', { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
+                    <h3>Order #{order.id}</h3>
+                    <p>
+                      {new Date(order.createdAt).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit"
                       })}
                     </p>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--home-subtext)' }}>Total</p>
-                    <h3 style={{ margin: '4px 0 0 0', color: 'var(--accent-color)', fontSize: '1.4rem' }}>
-                      ${order.totalPrice.toFixed(2)}
-                    </h3>
+                  <div className="orderCard__total">
+                    <span>Total</span>
+                    <strong>${Number(order.totalPrice).toFixed(2)}</strong>
                   </div>
-                </div>
+                </header>
 
-                {/* Customer & Delivery Info */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '20px',
-                  marginBottom: '16px'
-                }}>
+                <section className="orderCard__grid">
                   <div>
-                    <h4 style={{ margin: '0 0 8px 0', color: 'var(--home-text)', fontSize: '0.9rem' }}>Customer</h4>
-                    <p style={{ margin: '4px 0', fontSize: '0.9rem' }}>{order.firstName} {order.lastName}</p>
-                    <p style={{ margin: '4px 0', fontSize: '0.85rem', color: 'var(--home-subtext)' }}>{order.email}</p>
+                    <h4>Customer</h4>
+                    <p>{order.firstName} {order.lastName}</p>
+                    <p>{order.email}</p>
                   </div>
                   <div>
-                    <h4 style={{ margin: '0 0 8px 0', color: 'var(--home-text)', fontSize: '0.9rem' }}>Delivery Address</h4>
-                    <p style={{ margin: '4px 0', fontSize: '0.9rem' }}>{order.address}</p>
-                    <p style={{ margin: '4px 0', fontSize: '0.85rem', color: 'var(--home-subtext)' }}>
-                      {order.city}, {order.postalCode}
-                    </p>
+                    <h4>Delivery Address</h4>
+                    <p>{order.address}</p>
+                    <p>{order.city}, {order.postalCode}</p>
                   </div>
-                </div>
+                </section>
 
-                {/* Items in Order */}
-                <div style={{
-                  marginBottom: '16px'
-                }}>
-                  <h4 style={{ margin: '0 0 12px 0', color: 'var(--home-text)', fontSize: '0.9rem' }}>Items Ordered</h4>
-                  <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px'
-                  }}>
-                    {order.items && order.items.map((item, idx) => (
-                      <div key={idx} style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        padding: '8px',
-                        backgroundColor: 'rgba(255,255,255,0.02)',
-                        borderRadius: '6px'
-                      }}>
-                        <div>
-                          <p style={{ margin: 0, fontSize: '0.9rem' }}>{item.name}</p>
-                          <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: 'var(--home-subtext)' }}>
-                            Qty: {item.quantity || 1}
-                          </p>
+                <section>
+                  <h4 className="orderCard__sectionLabel">Items Ordered</h4>
+                  <div className="orderCard__items">
+                    {Array.isArray(order.items) && order.items.length > 0 ? (
+                      order.items.map((item, index) => (
+                        <div key={`${item.id}-${index}`} className="orderCard__item">
+                          <div>
+                            <p>{item.name}</p>
+                            <small>Qty: {item.quantity || 1}</small>
+                          </div>
+                          <p>${(Number(item.price) * (item.quantity || 1)).toFixed(2)}</p>
                         </div>
-                        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--accent-color)' }}>
-                          ${(item.price * (item.quantity || 1)).toFixed(2)}
-                        </p>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      <p className="orderCard__empty">No items listed.</p>
+                    )}
                   </div>
-                </div>
+                </section>
 
-                {/* Payment Method */}
-                <div style={{
-                  paddingTop: '12px',
-                  borderTop: '1px solid var(--card-border)'
-                }}>
-                  <h4 style={{ margin: '0 0 8px 0', color: 'var(--home-text)', fontSize: '0.9rem' }}>Payment Method</h4>
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                    <p style={{ margin: 0, fontSize: '0.9rem' }}>
-                      💳 {order.cardName}
-                    </p>
-                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--home-subtext)' }}>
-                      ···· {order.cardNumber ? order.cardNumber.slice(-4) : '****'}
-                    </p>
+                <footer className="orderCard__payment">
+                  <h4>Payment Method</h4>
+                  <div>
+                    <p>{order.cardName || "Card"}</p>
+                    <p>Card ending in {order.cardNumber ? String(order.cardNumber).slice(-4) : "----"}</p>
                   </div>
-                </div>
-              </div>
+                </footer>
+              </article>
             ))}
           </div>
         )}
       </main>
 
-      {/* footer for bottom space */}
       <footer className="footer">
         <div className="footer__inner">
-          <div className="footer__brand">shoply</div>
-          <div className="footer__muted">
-            demo e-commerce platform · cps630
-          </div>
+          <div className="footer__brand">SHOPLY</div>
+          <div className="footer__muted">Demo e-commerce platform - CPS630</div>
 
           <div className="footer__links">
-            <a className="footer__link" >Hotline</a>
-            <a className="footer__link" >Email</a>
-            <a className="footer__link" >Feedback</a>
+            <a className="footer__link">Hotline</a>
+            <a className="footer__link">Email</a>
+            <a className="footer__link">Feedback</a>
           </div>
         </div>
       </footer>

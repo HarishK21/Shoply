@@ -1,12 +1,13 @@
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { fetchCart } from "../../lib/cart";
 import "./Navbar.css";
 
-export default function Navbar({ user, onLogout, onSearchChange, searchValue }) {
+export default function Navbar({ user, onLogout, onSearchChange, searchValue = "" }) {
   const navigate = useNavigate();
-  const [cartCount, setCartCount] = useState(0);
   const location = useLocation();
+  const [cartCount, setCartCount] = useState(0);
+  const hasSearch = typeof onSearchChange === "function";
 
   useEffect(() => {
     let isMounted = true;
@@ -42,7 +43,7 @@ export default function Navbar({ user, onLogout, onSearchChange, searchValue }) 
       <div className="nav__inner">
         <div className="nav__left">
           <button className="nav__brand" onClick={() => navigate("/home")}>
-            <div className="coin-container">
+            <div className="coin-container" aria-hidden="true">
               <div className="coin">
                 <div className="coin-front">$</div>
                 <div className="coin-back">$</div>
@@ -51,35 +52,43 @@ export default function Navbar({ user, onLogout, onSearchChange, searchValue }) 
             SHOPLY
           </button>
 
-          <nav className="nav__links">
-            <Link to="/home" className="nav__link">Home</Link>
-            <Link to="/orders" className="nav__link">My Orders</Link>
-            <Link to="/realtime" className="nav__link">Live Chat</Link>
+          <nav className="nav__links" aria-label="Main">
+            <NavLink to="/home" className={({ isActive }) => `nav__link ${isActive ? "is-active" : ""}`.trim()}>
+              Home
+            </NavLink>
+            <NavLink to="/orders" className={({ isActive }) => `nav__link ${isActive ? "is-active" : ""}`.trim()}>
+              My Orders
+            </NavLink>
+            <NavLink to="/realtime" className={({ isActive }) => `nav__link ${isActive ? "is-active" : ""}`.trim()}>
+              Live Chat
+            </NavLink>
           </nav>
         </div>
 
         <div className="nav__center">
-          <div className={`nav__search ${location.pathname !== "/home" ? "nav__search--hidden" : ""}`}>
-            <span className="nav__searchIcon">⌕</span>
+          <div
+            className={`nav__search ${location.pathname !== "/home" || !hasSearch ? "nav__search--hidden" : ""}`}
+            aria-hidden={location.pathname !== "/home" || !hasSearch}
+          >
+            <span className="nav__searchIcon">Find</span>
             <input
               className="nav__searchInput"
-              placeholder="Search products..."
+              placeholder="Search products"
               value={searchValue}
-              onChange={(e) => onSearchChange(e.target.value)}
+              onChange={(event) => onSearchChange?.(event.target.value)}
+              aria-label="Search products"
             />
           </div>
         </div>
-        
+
         <div className="nav__right">
-          <button className="nav__cart" onClick={() => navigate("/checkout")}>
-            <span className="nav__cartIcon">🛒</span>
+          <button className="nav__cart" onClick={() => navigate("/checkout")} aria-label="Open cart and checkout">
+            <span className="nav__cartLabel">Cart</span>
             {cartCount > 0 && <span className="nav__cartBadge">{cartCount}</span>}
           </button>
 
-          <div className="nav__user">
-            <div className="nav__avatar">
-              {(user?.name?.[0] || "U").toUpperCase()}
-            </div>
+          <div className="nav__user" aria-label={`Signed in as ${user?.name || "Guest"}`}>
+            <div className="nav__avatar">{(user?.name?.[0] || "U").toUpperCase()}</div>
             <div className="nav__userText">
               <div className="nav__hello">Signed in</div>
               <div className="nav__name">{user?.name || "Guest"}</div>

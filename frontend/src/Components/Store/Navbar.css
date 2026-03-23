@@ -125,6 +125,7 @@
   color: var(--nav-text-muted);
   padding: 8px 12px;
   border-radius: 10px;
+  white-space: nowrap;
   transition: all 0.2s ease;
   font-weight: 500;
   font-size: 14px;
@@ -135,14 +136,20 @@
   color: var(--nav-text);
 }
 
+.nav__link.is-active {
+  color: var(--nav-text);
+  background: var(--nav-hover-bg);
+  border: 1px solid var(--nav-input-border);
+}
+
 .nav__center {
   display: flex;
   justify-content: center;
 }
 
 .nav__search--hidden {
-  visibility: hidden;   /* bar takes space but not visible */
-  pointer-events: none; 
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .nav__search {
@@ -166,7 +173,9 @@
 
 .nav__searchIcon {
   color: var(--nav-text-muted);
-  font-size: 15px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
 .nav__searchInput {
@@ -212,6 +221,11 @@
 
 .nav__cartIcon {
   display: inline-block;
+}
+
+.nav__cartLabel {
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .nav__cartBadge {

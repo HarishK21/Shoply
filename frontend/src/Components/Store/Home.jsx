@@ -1,51 +1,99 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import Notice from "../UI/Notice";
 import Navbar from "./Navbar";
 import { apiFetch, clearAuthSession, getAuthToken, getStoredUser } from "../../lib/auth";
 import "./Home.css";
 
+const initialItemState = {
+  name: "",
+  description: "",
+  postedBy: "",
+  price: "",
+  hasImage: false,
+  imageURL: ""
+};
+
 export default function Home() {
   const [items, setItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
   const [sortBy, setSortBy] = useState("none");
+  const [notice, setNotice] = useState({ type: "info", message: "" });
 
-  // theme state
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("theme") || "dark";
-  });
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
+
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const [newItem, setNewItem] = useState(initialItemState);
 
   const navigate = useNavigate();
   const [user] = useState(() => getStoredUser());
   const [token] = useState(() => getAuthToken());
 
   useEffect(() => {
-    if (!user || !token) navigate("/login");
+    if (!user || !token) {
+      navigate("/login");
+    }
   }, [navigate, token, user]);
 
   useEffect(() => {
-    fetch("/api/items")
-      .then((r) => r.json())
-      .then(setItems)
-      .catch(console.error);
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  const loadItems = async () => {
+    setIsLoading(true);
+    setLoadError("");
+    try {
+      const response = await fetch("/api/items");
+      if (!response.ok) {
+        throw new Error("Could not load products right now.");
+      }
+      const payload = await response.json();
+      setItems(Array.isArray(payload) ? payload : []);
+    } catch (error) {
+      console.error("Fetch items error:", error);
+      setLoadError("Could not load products right now. Try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadItems();
   }, []);
 
-  const filtered = useMemo(() => {
-    let result = items;
-
-    // Apply search filter
-    const q = search.trim().toLowerCase();
-    if (q) {
-      result = result.filter((it) => it.name.toLowerCase().includes(q));
+  useEffect(() => {
+    if (!showAddForm) {
+      return undefined;
     }
 
-    // Apply price range filter
+    const onEscape = (event) => {
+      if (event.key === "Escape" && !isAddingItem) {
+        setShowAddForm(false);
+      }
+    };
+
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [isAddingItem, showAddForm]);
+
+  const filtered = useMemo(() => {
+    let result = [...items];
+
+    const q = search.trim().toLowerCase();
+    if (q) {
+      result = result.filter((item) => item.name.toLowerCase().includes(q));
+    }
+
     const minPrice = priceMin === "" ? -Infinity : Number(priceMin);
     const maxPrice = priceMax === "" ? Infinity : Number(priceMax);
-    result = result.filter((it) => it.price >= minPrice && it.price <= maxPrice);
+    result = result.filter((item) => item.price >= minPrice && item.price <= maxPrice);
 
-    // Apply sorting
     if (sortBy === "price-asc") {
       result.sort((a, b) => a.price - b.price);
     } else if (sortBy === "price-desc") {
@@ -55,11 +103,7 @@ export default function Home() {
     return result;
   }, [items, search, priceMin, priceMax, sortBy]);
 
-  // apply theme to entire page
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("theme", theme);
-  }, [theme]);
+  const hasFilters = search.trim() !== "" || priceMin !== "" || priceMax !== "" || sortBy !== "none";
 
   const onLogout = async () => {
     try {
@@ -72,108 +116,121 @@ export default function Home() {
   };
 
   const toggleTheme = () => {
-    setTheme((t) => (t === "dark" ? "light" : "dark"));
+    setTheme((current) => (current === "dark" ? "light" : "dark"));
   };
 
-  // Add item modal state
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newItem, setNewItem] = useState({
-    name: '',
-    description: '',
-    postedBy: '',
-    userId: '',
-    price: '',
-    hasImage: false,
-    imageURL: ''
-  });
-
-  const openAddForm = () => setShowAddForm(true);
-  const closeAddForm = () => setShowAddForm(false);
-
-  const handleNewItemChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setNewItem((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  const openAddForm = () => {
+    setNotice({ type: "info", message: "" });
+    setShowAddForm(true);
   };
 
-  const submitNewItem = async (e) => {
-    e.preventDefault();
-    if (!newItem.name || newItem.price === '') {
-      alert('Please enter item name and price');
+  const closeAddForm = () => {
+    if (!isAddingItem) {
+      setShowAddForm(false);
+    }
+  };
+
+  const handleNewItemChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    setNewItem((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  };
+
+  const submitNewItem = async (event) => {
+    event.preventDefault();
+    setNotice({ type: "info", message: "" });
+
+    const trimmedName = newItem.name.trim();
+    const parsedPrice = Number(newItem.price);
+
+    if (!trimmedName) {
+      setNotice({ type: "warning", message: "Item name is required." });
       return;
     }
 
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+      setNotice({ type: "warning", message: "Enter a valid price greater than 0." });
+      return;
+    }
+
+    setIsAddingItem(true);
     try {
-      const resp = await fetch('/api/items', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: newItem.name,
-          description: newItem.description,
-          postedBy: newItem.postedBy,
+          name: trimmedName,
+          description: newItem.description.trim(),
+          postedBy: newItem.postedBy.trim(),
           userId: user ? user.id : null,
-          price: Number(newItem.price),
-          hasImage: !!newItem.hasImage,
-          imageURL: newItem.imageURL
+          price: parsedPrice,
+          hasImage: Boolean(newItem.hasImage),
+          imageURL: newItem.imageURL.trim()
         })
       });
 
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        alert(err.message || 'Failed to add item');
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setNotice({ type: "error", message: payload.message || "Unable to add item." });
         return;
       }
 
-      const created = await resp.json();
-      // prepend to items list
-      setItems((prev) => [created, ...prev]);
-      setNewItem({ name: '', description: '', postedBy: '', userId: null, price: '', hasImage: false, imageURL: '' });
-      closeAddForm();
-    } catch (err) {
-      console.error('Error adding item', err);
-      alert('Error adding item');
+      setItems((prev) => [payload, ...prev]);
+      setNewItem(initialItemState);
+      setShowAddForm(false);
+      setNotice({ type: "success", message: "Item added successfully." });
+    } catch (error) {
+      console.error("Add item error:", error);
+      setNotice({ type: "error", message: "Network error while adding item." });
+    } finally {
+      setIsAddingItem(false);
     }
+  };
+
+  const clearFilters = () => {
+    setSearch("");
+    setPriceMin("");
+    setPriceMax("");
+    setSortBy("none");
   };
 
   return (
     <div className="home">
-      <Navbar
-        user={user}
-        onLogout={onLogout}
-        onSearchChange={setSearch}
-        searchValue={search}
-      />
+      <Navbar user={user} onLogout={onLogout} onSearchChange={setSearch} searchValue={search} />
 
       <main className="home__wrap">
+        {notice.message && (
+          <div className="home__notice">
+            <Notice
+              type={notice.type}
+              message={notice.message}
+              onDismiss={() => setNotice({ type: "info", message: "" })}
+            />
+          </div>
+        )}
+
         <div className="home__titleRow">
           <div>
             <h1 className="home__title">Home</h1>
-            <p className="home__subtitle">Browse products and view details.</p>
+            <p className="home__subtitle">Browse products, filter quickly, and manage items.</p>
           </div>
 
-          {/* RIGHT SIDE: items badge + theme toggle */}
           <div className="home__controls">
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <div className="badge">{filtered.length} items</div>
-
-              <button
-                type="button"
-                className="themeToggle arcade-btn"
-                onClick={openAddForm}
-                title="Add new item"
-                style={{ padding: '8px 14px', borderRadius: '12px', border: 'none', background: 'var(--accent-gradient)' }}
-              >
-                ➕ Add Item
-              </button>
+            <div className="badge" aria-label={`${filtered.length} visible items`}>
+              {filtered.length} items
             </div>
+
+            <button type="button" className="home__addBtn" onClick={openAddForm}>
+              Add Item
+            </button>
 
             <button
               type="button"
               className="themeToggle"
               onClick={toggleTheme}
-              aria-label="Toggle light mode"
-              title="Toggle light/dark"
+              aria-label="Toggle light and dark mode"
+              title="Toggle light and dark mode"
             >
-              <span className="themeToggle__icon">{theme === "dark" ? "🌙" : "☀️"}</span>
+              <span className="themeToggle__icon">{theme === "dark" ? "Dark" : "Light"}</span>
               <span className={`themeToggle__track ${theme === "light" ? "isOn" : ""}`}>
                 <span className="themeToggle__thumb" />
               </span>
@@ -181,192 +238,130 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Add Item */}
         {showAddForm && (
-          <div className="addItemModalOverlay">
-            <div className="addItemModalCard">
-              <h3 style={{ marginTop: 0 }}>Add New Item</h3>
+          <div className="addItemModalOverlay" role="presentation" onClick={(event) => event.target === event.currentTarget && closeAddForm()}>
+            <div className="addItemModalCard" role="dialog" aria-modal="true" aria-labelledby="add-item-title">
+              <h3 id="add-item-title">Add New Item</h3>
+              <p className="addItemModalCard__subtitle">Required fields are marked. This will publish to the product list.</p>
               <form onSubmit={submitNewItem}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <input name="name" placeholder="Name" value={newItem.name} onChange={handleNewItemChange} required />
-                  <input name="postedBy" placeholder="Posted By" value={newItem.postedBy} onChange={handleNewItemChange} />
-                  <input name="price" placeholder="Price" value={newItem.price} onChange={handleNewItemChange} required />
-                  <input name="imageURL" placeholder="Image URL" value={newItem.imageURL} onChange={handleNewItemChange} />
+                <div className="addItemModalCard__grid">
+                  <input name="name" placeholder="Name (required)" value={newItem.name} onChange={handleNewItemChange} required />
+                  <input name="postedBy" placeholder="Seller name" value={newItem.postedBy} onChange={handleNewItemChange} />
+                  <input name="price" placeholder="Price (required)" type="number" step="0.01" value={newItem.price} onChange={handleNewItemChange} required />
+                  <input name="imageURL" placeholder="Image URL or /images/..." value={newItem.imageURL} onChange={handleNewItemChange} />
                 </div>
-                <div style={{ marginTop: 10 }}>
-                  <textarea name="description" placeholder="Description" value={newItem.description} onChange={handleNewItemChange} rows={4} style={{ width: '100%' }} />
+                <div className="addItemModalCard__field">
+                  <textarea name="description" placeholder="Description" value={newItem.description} onChange={handleNewItemChange} rows={4} />
                 </div>
-                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <input type="checkbox" name="hasImage" checked={newItem.hasImage} onChange={handleNewItemChange} /> Has Image
-                  </label>
-                </div>
-                <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                  <button type="button" onClick={closeAddForm}>Cancel</button>
-                  <button type="submit">Add Item</button>
+                <label className="addItemModalCard__check">
+                  <input type="checkbox" name="hasImage" checked={newItem.hasImage} onChange={handleNewItemChange} />
+                  Item includes an image
+                </label>
+                <div className="addItemModalCard__actions">
+                  <button type="button" onClick={closeAddForm} disabled={isAddingItem}>
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={isAddingItem}>
+                    {isAddingItem ? "Adding..." : "Add Item"}
+                  </button>
                 </div>
               </form>
             </div>
           </div>
         )}
-      
 
-        {/* Filter and Sort Controls */}
-        <div style={{
-          display: 'flex',
-          gap: '16px',
-          marginBottom: '24px',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          padding: '12px',
-          border: '1px solid var(--input-border)',
-          borderRadius: '20px',
-          backgroundColor: 'rgba(255,255,255,0.03)'
-        }}>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <label style={{ fontSize: '0.9rem' }}>Price Range:</label>
+        <section className="homeFilterBar" aria-label="Filter and sort products">
+          <div className="homeFilterBar__group">
+            <label htmlFor="filter-min">Price Range</label>
             <input
+              id="filter-min"
               type="number"
               placeholder="Min"
               value={priceMin}
-              onChange={(e) => setPriceMin(e.target.value)}
-              style={{
-                width: '80px',
-                padding: '6px 8px',
-                borderRadius: '20px',
-                border: '1px solid var(--input-border)',
-                backgroundColor: 'var(--input-bg)',
-                color: 'var(--home-text)',
-                fontSize: '0.9rem'
-              }}
+              onChange={(event) => setPriceMin(event.target.value)}
             />
-            <span>—</span>
+            <span>to</span>
             <input
+              id="filter-max"
               type="number"
               placeholder="Max"
               value={priceMax}
-              onChange={(e) => setPriceMax(e.target.value)}
-              style={{
-                width: '80px',
-                padding: '6px 8px',
-                borderRadius: '20px',
-                border: '1px solid var(--input-border)',
-                backgroundColor: 'var(--input-bg)',
-                color: 'var(--home-text)',
-                fontSize: '0.9rem'
-              }}
+              onChange={(event) => setPriceMax(event.target.value)}
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <label htmlFor="sort-select" style={{ fontSize: '0.9rem' }}>Sort:</label>
-            <select
-              id="sort-select"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              style={{
-                padding: '6px 8px',
-                borderRadius: '20px',
-                border: '1px solid var(--input-border)',
-                backgroundColor: 'var(--input-bg)',
-                color: 'var(--home-text)',
-                cursor: 'pointer',
-                fontSize: '0.9rem'
-              }}
-            >
-              <option style={{ color: 'black' }} value="none">None</option>
-              <option style={{ color: 'black' }} value="price-asc">Price: Low to High</option>
-              <option style={{ color: 'black' }} value="price-desc">Price: High to Low</option>
+          <div className="homeFilterBar__group">
+            <label htmlFor="sort-select">Sort</label>
+            <select id="sort-select" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+              <option value="none">None</option>
+              <option value="price-asc">Price: Low to High</option>
+              <option value="price-desc">Price: High to Low</option>
             </select>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setPriceMin("");
-              setPriceMax("");
-              setSortBy("none");
-            }}
-            style={{
-              padding: '6px 12px',
-              borderRadius: '20px',
-              border: '1px solid var(--input-border)',
-              backgroundColor: 'rgba(200, 100, 100, 0.15)',
-              color: 'var(--home-text)',
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              marginLeft: 'auto',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(200, 100, 100, 0.25)'}
-            onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(200, 100, 100, 0.15)'}
-          >
+          <button type="button" className="homeFilterBar__clear" onClick={clearFilters} disabled={!hasFilters}>
             Clear Filters
           </button>
-        </div>
+        </section>
 
-        {filtered.length === 0 && (search.trim() !== "" || priceMin !== "" || priceMax !== "" || sortBy !== "none") ? (
-          <div className="noResults">
-            No items found
+        {isLoading ? (
+          <div className="home__emptyState">Loading products...</div>
+        ) : loadError ? (
+          <Notice type="error" message={loadError} actionLabel="Retry" onAction={loadItems} />
+        ) : filtered.length === 0 ? (
+          <div className="home__emptyState">
+            {hasFilters ? "No items match your current filters." : "No products available yet."}
           </div>
         ) : (
           <div className="grid">
-            {filtered.map((item) => (
-              <div key={item.id} className="card">
-                {/* Image thumbnail */}
-                <div style={{
-                  height: '180px',
-                  marginBottom: '10px',
-                  background: 'rgba(255,255,255,0.02)',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden'
-                }}>
-                  {item.hasImage ? (
-                    <img
-                      src={item.imageURL.startsWith('http') ? item.imageURL : `${window.location.origin}${item.imageURL}`}
-                      alt={item.name}
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '100%',
-                        objectFit: 'contain'
-                      }}
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                  ) : (
-                    <div style={{ color: 'var(--home-subtext)', fontSize: '0.8rem' }}>No Image</div>
-                  )}
-                </div>
+            {filtered.map((item) => {
+              const rawImage = typeof item.imageURL === "string" ? item.imageURL.trim() : "";
+              const imageSrc = item.hasImage && rawImage
+                ? rawImage.startsWith("http")
+                  ? rawImage
+                  : `${window.location.origin}${rawImage}`
+                : "";
 
-                <h3 className="card__name">{item.name}</h3>
+              return (
+                <article key={item.id} className="card">
+                  <div className="card__media">
+                    {imageSrc ? (
+                      <img
+                        src={imageSrc}
+                        alt={item.name}
+                        onError={(event) => {
+                          event.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <div className="card__placeholder">No image</div>
+                    )}
+                  </div>
 
-                <div className="card__meta">
-                  <div className="card__price">${item.price}</div>
-                </div>
+                  <h3 className="card__name">{item.name}</h3>
+                  <div className="card__meta">
+                    <div className="card__price">${Number(item.price).toFixed(2)}</div>
+                  </div>
 
-                <Link className="card__link" to={`/product/${item.id}`}>
-                  View Details
-                </Link>
-              </div>
-            ))}
+                  <Link className="card__link" to={`/product/${item.id}`}>
+                    View Details
+                  </Link>
+                </article>
+              );
+            })}
           </div>
         )}
       </main>
 
-      {/* footer for bottom space */}
       <footer className="footer">
         <div className="footer__inner">
-          <div className="footer__brand">shoply</div>
-          <div className="footer__muted">
-            demo e-commerce platform · cps630
-          </div>
+          <div className="footer__brand">SHOPLY</div>
+          <div className="footer__muted">Demo e-commerce platform - CPS630</div>
 
           <div className="footer__links">
-            <a className="footer__link" >Hotline</a>
-            <a className="footer__link" >Email</a>
-            <a className="footer__link" >Feedback</a>
+            <a className="footer__link">Hotline</a>
+            <a className="footer__link">Email</a>
+            <a className="footer__link">Feedback</a>
           </div>
         </div>
       </footer>

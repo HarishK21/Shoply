@@ -51,6 +51,10 @@
   flex: 1;
 }
 
+.checkout__notice {
+  margin-bottom: 18px;
+}
+
 .checkout__titleRow {
   display: flex;
   justify-content: space-between;
