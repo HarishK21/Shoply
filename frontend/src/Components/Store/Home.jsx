@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
+import { apiFetch, clearAuthSession, getAuthToken, getStoredUser } from "../../lib/auth";
 import "./Home.css";
 
 export default function Home() {
@@ -13,11 +14,12 @@ export default function Home() {
   });
 
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const user = getStoredUser();
+  const token = getAuthToken();
 
   useEffect(() => {
-    if (!user) navigate("/login");
-  }, []);
+    if (!user || !token) navigate("/login");
+  }, [navigate, token, user]);
 
   useEffect(() => {
     fetch("/api/items")
@@ -38,8 +40,13 @@ export default function Home() {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  const onLogout = () => {
-    localStorage.removeItem("user");
+  const onLogout = async () => {
+    try {
+      await apiFetch("/api/logout", { method: "POST" });
+    } catch {
+      // Local auth clear still happens if network logout fails.
+    }
+    clearAuthSession();
     navigate("/login");
   };
 

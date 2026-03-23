@@ -1,6 +1,8 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Navbar from "./Navbar";
+import { apiFetch, clearAuthSession, getAuthToken, getStoredUser } from "../../lib/auth";
+import { addItemToCart } from "../../lib/cart";
 import "./Home.css";
 
 const ProductDetails = () => {
@@ -24,21 +26,16 @@ const ProductDetails = () => {
         return localStorage.getItem("theme") || "dark";
     });
 
-    const user = JSON.parse(localStorage.getItem("user") || "null");
+    const user = getStoredUser();
+    const token = getAuthToken();
 
-    const addToCart = () => {
-        const currentCart = JSON.parse(localStorage.getItem("cart") || "[]");
-        const existingItemIndex = currentCart.findIndex((item) => item.id === product.id);
-
-        if (existingItemIndex > -1) {
-            currentCart[existingItemIndex].quantity = (currentCart[existingItemIndex].quantity || 1) + 1;
-        } else {
-            currentCart.push({ ...product, quantity: 1 });
+    const addToCart = async () => {
+        try {
+            await addItemToCart(product.id, 1);
+            alert(`Added ${product.name} to cart!`);
+        } catch (error) {
+            alert(error.message || "Failed to add item to cart");
         }
-
-        localStorage.setItem("cart", JSON.stringify(currentCart));
-        alert(`Added ${product.name} to cart!`);
-        window.dispatchEvent(new Event("storage"));
     };
 
     const deleteProduct = async () => {
@@ -52,15 +49,7 @@ const ProductDetails = () => {
             });
 
             if (response.ok) {
-                try {
-                    const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
-                    const updatedCart = currentCart.filter((it) => it.id !== product.id);
-                    localStorage.setItem('cart', JSON.stringify(updatedCart));
-                    window.dispatchEvent(new Event('storage'));
-                    window.dispatchEvent(new Event('cartUpdated'));
-                } catch (e) {
-                    console.warn('Failed to update local cart after deletion', e);
-                }
+                window.dispatchEvent(new Event('cartUpdated'));
 
                 alert('Product deleted successfully!');
                 navigate('/home');
@@ -122,20 +111,7 @@ const ProductDetails = () => {
 
             const updated = await resp.json();
             setProduct(updated);
-
-            // Also update in local cart if present
-            try {
-                const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
-                const cartIdx = currentCart.findIndex((it) => it.id === updated.id);
-                if (cartIdx > -1) {
-                    currentCart[cartIdx] = { ...currentCart[cartIdx], ...updated };
-                    localStorage.setItem('cart', JSON.stringify(currentCart));
-                    window.dispatchEvent(new Event('storage'));
-                    window.dispatchEvent(new Event('cartUpdated'));
-                }
-            } catch (e) {
-                console.warn('Failed to update cart after edit', e);
-            }
+            window.dispatchEvent(new Event('cartUpdated'));
 
             closeEditForm();
             alert('Product updated successfully!');
@@ -146,8 +122,8 @@ const ProductDetails = () => {
     };
 
     useEffect(() => {
-        if (!user) navigate("/login");
-    }, [user, navigate]);
+        if (!user || !token) navigate("/login");
+    }, [token, user, navigate]);
 
     useEffect(() => {
         document.documentElement.setAttribute("data-theme", theme);
@@ -164,8 +140,13 @@ const ProductDetails = () => {
             .catch(err => console.error('Error fetching product:', err));
     }, [id]);
 
-    const onLogout = () => {
-        localStorage.removeItem("user");
+    const onLogout = async () => {
+        try {
+            await apiFetch("/api/logout", { method: "POST" });
+        } catch {
+            // Local auth clear still happens if network logout fails.
+        }
+        clearAuthSession();
         navigate("/login");
     };
 

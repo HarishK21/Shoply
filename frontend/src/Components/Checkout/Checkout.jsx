@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../Store/Navbar";
+import { apiFetch, clearAuthSession, getAuthToken, getStoredUser } from "../../lib/auth";
+import {
+  clearCart,
+  fetchCart,
+  removeItemFromCart,
+  updateCartItemQuantity
+} from "../../lib/cart";
 import "./Checkout.css";
 
 export default function Checkout() {
-
   const [search, setSearch] = useState("");
-  const [cartCount, setCartCount] = useState(0);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -20,65 +25,40 @@ export default function Checkout() {
     cardCVV: ""
   });
   const [orderConfirmed, setOrderConfirmed] = useState(false);
-
-  const [cart, setCart] = useState(() => {
-    const savedCart = localStorage.getItem("cart");
-    return savedCart ? JSON.parse(savedCart) : [];
-  });
-  // theme state
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("theme") || "dark";
-  });
+  const [cart, setCart] = useState([]);
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
 
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const user = getStoredUser();
+  const token = getAuthToken();
+
+  const cartCount = useMemo(
+    () => cart.reduce((total, item) => total + (item.quantity || 1), 0),
+    [cart]
+  );
 
   useEffect(() => {
-    if (!user) navigate("/login");
-  }, []);
+    if (!user || !token) {
+      navigate("/login");
+      return;
+    }
+    fetchCart()
+      .then((items) => setCart(items))
+      .catch(() => setCart([]));
+  }, [navigate, token, user]);
 
-  useEffect(() => {
-    // Get initial cart count from localStorage
-    const updateCartCount = () => {
-      const cart = localStorage.getItem("cart");
-      if (cart) {
-        const items = JSON.parse(cart);
-        if (Array.isArray(items)) {
-          // Sum up quantities for all items 
-          const count = items.reduce((total, item) => total + (item.quantity || 1), 0);
-          setCartCount(count);
-        } else {
-          setCartCount(0);
-        }
-      } else {
-        setCartCount(0);
-      }
-    };
-
-    updateCartCount();
-
-    // Listen for storage changes 
-    window.addEventListener("storage", updateCartCount);
-
-    // Event listener for cart updates
-    window.addEventListener("cartUpdated", updateCartCount);
-
-    return () => {
-      window.removeEventListener("storage", updateCartCount);
-      window.removeEventListener("cartUpdated", updateCartCount);
-    };
-  }, []);
-
-
-
-  // apply theme to entire page
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  const onLogout = () => {
-    localStorage.removeItem("user");
+  const onLogout = async () => {
+    try {
+      await apiFetch("/api/logout", { method: "POST" });
+    } catch {
+      // Local auth clear still happens if network logout fails.
+    }
+    clearAuthSession();
     navigate("/login");
   };
 
@@ -86,28 +66,28 @@ export default function Checkout() {
     setTheme((t) => (t === "dark" ? "light" : "dark"));
   };
 
-  {/* Remove Item from Cart */ }
-  const removeFromCart = (itemId) => {
-    const updatedCart = cart.filter((item) => item.id !== itemId);
-    setCart(updatedCart);
-    localStorage.setItem("cart", JSON.stringify(updatedCart));
-
-    // Trigger cart update event for navbar
-    window.dispatchEvent(new Event("storage"));
+  const removeFromCart = async (itemId) => {
+    try {
+      const items = await removeItemFromCart(itemId);
+      setCart(items);
+    } catch {
+      alert("Failed to remove item");
+    }
   };
 
-  const updateQuantity = (itemId, newQuantity) => {
-    if (newQuantity <= 0) {
-      removeFromCart(itemId);
-      return;
-    }
+  const updateQuantity = async (itemId, newQuantity) => {
+    try {
+      if (newQuantity <= 0) {
+        const items = await removeItemFromCart(itemId);
+        setCart(items);
+        return;
+      }
 
-    const updatedCart = cart.map((item) =>
-      item.id === itemId ? { ...item, quantity: newQuantity } : item
-    );
-    setCart(updatedCart);
-    localStorage.setItem("cart", JSON.stringify(updatedCart));
-    window.dispatchEvent(new Event("storage"));
+      const items = await updateCartItemQuantity(itemId, newQuantity);
+      setCart(items);
+    } catch {
+      alert("Failed to update quantity");
+    }
   };
 
   const handleFormChange = (e) => {
@@ -121,51 +101,54 @@ export default function Checkout() {
       alert("Cart is empty!");
       return;
     }
-    // Basic payment validation 
+
+    // Basic payment validation
     const { cardName, cardNumber, cardExpiry, cardCVV } = formData;
     if (!cardName || !cardNumber || !cardExpiry || !cardCVV) {
-      alert('Please complete payment information');
+      alert("Please complete payment information");
       return;
     }
 
-    const numericCard = cardNumber.replace(/\s+/g, '');
+    const numericCard = cardNumber.replace(/\s+/g, "");
     if (!/^[0-9]{12,19}$/.test(numericCard)) {
-      alert('Please enter a valid card number');
+      alert("Please enter a valid card number");
       return;
     }
 
     if (!/^[0-9]{3,4}$/.test(cardCVV)) {
-      alert('Please enter a valid CVV');
+      alert("Please enter a valid CVV");
       return;
     }
 
     // expiry in MM/YY or MM/YYYY
     if (!/^\d{2}\/\d{2,4}$/.test(cardExpiry)) {
-      alert('Please enter expiry in MM/YY or MM/YYYY');
+      alert("Please enter expiry in MM/YY or MM/YYYY");
       return;
     }
 
     setOrderConfirmed(true);
   };
 
-  const emptyCart = () => {
-    setCart([]);
-    localStorage.setItem("cart", JSON.stringify([]));
-    setOrderConfirmed(false);
-    setFormData({
-      firstName: "",
-      lastName: "",
-      email: "",
-      address: "",
-      city: "",
-      postalCode: ""
-      ,
-      cardName: "",
-      cardNumber: "",
-      cardExpiry: "",
-      cardCVV: ""
-    });
-    window.dispatchEvent(new Event("storage"));
+  const emptyCart = async () => {
+    try {
+      const items = await clearCart();
+      setCart(items);
+      setOrderConfirmed(false);
+      setFormData({
+        firstName: "",
+        lastName: "",
+        email: "",
+        address: "",
+        city: "",
+        postalCode: "",
+        cardName: "",
+        cardNumber: "",
+        cardExpiry: "",
+        cardCVV: ""
+      });
+    } catch {
+      alert("Failed to clear cart");
+    }
   };
 
   return (
@@ -184,7 +167,6 @@ export default function Checkout() {
             <p className="checkout__subtitle">Browse cart and place order.</p>
           </div>
 
-          {/* RIGHT SIDE: items badge + theme toggle */}
           <div className="checkout__controls">
             <div className="badge">{cartCount} items</div>
 
@@ -195,7 +177,7 @@ export default function Checkout() {
               aria-label="Toggle light mode"
               title="Toggle light/dark"
             >
-              <span className="themeToggle__icon">{theme === "dark" ? "🌙" : "☀️"}</span>
+              <span className="themeToggle__icon">{theme === "dark" ? "ðŸŒ™" : "â˜€ï¸"}</span>
               <span className={`themeToggle__track ${theme === "light" ? "isOn" : ""}`}>
                 <span className="themeToggle__thumb" />
               </span>
@@ -209,7 +191,6 @@ export default function Checkout() {
           </div>
         ) : (
           <div className="checkout__container">
-            {/* LEFT SIDE - Cart Items */}
             <div className="checkout__left">
               <h2 className="checkout__sectionTitle">Order Items</h2>
               {cart.length === 0 ? (
@@ -218,20 +199,18 @@ export default function Checkout() {
                 <div className="checkout__grid">
                   {cart.map((item) => (
                     <div key={item.id} className="checkout__card">
-                      {/* Image thumbnail */}
                       <div className="checkout__card__imageContainer">
                         {item.hasImage ? (
                           <img
-                            src={item.imageURL.startsWith('http') ? item.imageURL : `${window.location.origin}${item.imageURL}`}
+                            src={item.imageURL.startsWith("http") ? item.imageURL : `${window.location.origin}${item.imageURL}`}
                             alt={item.name}
-                            onError={(e) => { e.target.style.display = 'none'; }}
+                            onError={(e) => { e.target.style.display = "none"; }}
                           />
                         ) : (
-                          <div style={{ color: 'var(--checkout-subtext)', fontSize: '0.75rem' }}>No Image</div>
+                          <div style={{ color: "var(--checkout-subtext)", fontSize: "0.75rem" }}>No Image</div>
                         )}
                       </div>
 
-                      {/* Details */}
                       <div className="checkout__card__details">
                         <h3 className="checkout__card__name">{item.name}</h3>
 
@@ -243,14 +222,13 @@ export default function Checkout() {
                           Qty: {item.quantity || 1}
                         </div>
 
-                        {/* Controls */}
                         <div className="checkout__card__controls">
                           <button
                             className="checkout__card__btn"
                             onClick={() => updateQuantity(item.id, (item.quantity || 1) - 1)}
                             title="Decrease quantity"
                           >
-                            −
+                            âˆ’
                           </button>
                           <button
                             className="checkout__card__btn"
@@ -262,7 +240,6 @@ export default function Checkout() {
                         </div>
                       </div>
 
-                      {/* Actions */}
                       <div className="checkout__card__actions">
                         <Link className="checkout__card__link" to={`/product/${item.id}`}>
                           View
@@ -282,12 +259,11 @@ export default function Checkout() {
               )}
             </div>
 
-            {/* Checkout Form */}
             <div className="checkout__right">
               <h2 className="checkout__sectionTitle">Checkout</h2>
               {orderConfirmed ? (
                 <div className="checkout__confirmation">
-                  <div className="checkout__confirmIcon">✓</div>
+                  <div className="checkout__confirmIcon">âœ“</div>
                   <h3>Order Confirmed!</h3>
                   <p>Thank you, {formData.firstName}! Your order has been placed successfully.</p>
                   <p className="checkout__confirmDetails">
@@ -296,8 +272,8 @@ export default function Checkout() {
                   <div className="checkout__paymentSummary">
                     <h4>Payment</h4>
                     <p>
-                      {formData.cardName && <>{formData.cardName} — </>}
-                      Card ending in {formData.cardNumber ? formData.cardNumber.replace(/\s+/g, '').slice(-4) : '----'}
+                      {formData.cardName && <>{formData.cardName} â€” </>}
+                      Card ending in {formData.cardNumber ? formData.cardNumber.replace(/\s+/g, "").slice(-4) : "----"}
                     </p>
                   </div>
                   <button
@@ -381,8 +357,7 @@ export default function Checkout() {
                     />
                   </div>
 
-                  {/* Payment Information */}
-                  <div className="checkout__sectionTitle" style={{ marginTop: '12px' }}>Payment Information</div>
+                  <div className="checkout__sectionTitle" style={{ marginTop: "12px" }}>Payment Information</div>
 
                   <div className="checkout__formGroup">
                     <label>Cardholder Name</label>
@@ -409,7 +384,7 @@ export default function Checkout() {
                     />
                   </div>
 
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: "flex", gap: "8px" }}>
                     <div className="checkout__formGroup" style={{ flex: 1 }}>
                       <label>Expiry (MM/YY)</label>
                       <input
@@ -422,7 +397,7 @@ export default function Checkout() {
                       />
                     </div>
 
-                    <div className="checkout__formGroup" style={{ width: '120px' }}>
+                    <div className="checkout__formGroup" style={{ width: "120px" }}>
                       <label>CVV</label>
                       <input
                         type="password"
@@ -449,18 +424,17 @@ export default function Checkout() {
         )}
       </main>
 
-      {/*footer for bottom area*/}
       <footer className="footer">
         <div className="footer__inner">
           <div className="footer__brand">shoply</div>
           <div className="footer__muted">
-            demo e-commerce platform · cps630
+            demo e-commerce platform Â· cps630
           </div>
 
           <div className="footer__links">
-            <a className="footer__link" >Hotline</a>
-            <a className="footer__link" >Email</a>
-            <a className="footer__link" >Feedback</a>
+            <a className="footer__link">Hotline</a>
+            <a className="footer__link">Email</a>
+            <a className="footer__link">Feedback</a>
           </div>
         </div>
       </footer>

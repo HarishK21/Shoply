@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { fetchCart } from "../../lib/cart";
 import "./Navbar.css";
 
 export default function Navbar({ user, onLogout, onSearchChange, searchValue }) {
@@ -7,34 +8,31 @@ export default function Navbar({ user, onLogout, onSearchChange, searchValue }) 
   const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => {
-    // Get initial cart count from localStorage
-    const updateCartCount = () => {
-      const cart = localStorage.getItem("cart");
-      if (cart) {
-        const items = JSON.parse(cart);
-        if (Array.isArray(items)) {
-          // Sum up quantities for all items to count total items including duplicates
-          const count = items.reduce((total, item) => total + (item.quantity || 1), 0);
+    let isMounted = true;
+
+    const updateCartCount = async () => {
+      try {
+        const items = await fetchCart();
+        const count = items.reduce((total, item) => total + (item.quantity || 1), 0);
+        if (isMounted) {
           setCartCount(count);
-        } else {
+        }
+      } catch {
+        if (isMounted) {
           setCartCount(0);
         }
-      } else {
-        setCartCount(0);
       }
     };
 
     updateCartCount();
 
-    // Listen for storage changes 
-    window.addEventListener("storage", updateCartCount);
-
-    // Event listener for same-tab cart updates
     window.addEventListener("cartUpdated", updateCartCount);
+    window.addEventListener("authChanged", updateCartCount);
 
     return () => {
-      window.removeEventListener("storage", updateCartCount);
+      isMounted = false;
       window.removeEventListener("cartUpdated", updateCartCount);
+      window.removeEventListener("authChanged", updateCartCount);
     };
   }, []);
 

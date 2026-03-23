@@ -1,15 +1,18 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { storeAuthSession } from '../../lib/auth'
 import './Auth.css'
 
 function Login() {
   const navigate = useNavigate()
+  const [errorMessage, setErrorMessage] = useState('')
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   })
 
   const handleChange = (e) => {
+    setErrorMessage('')
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
@@ -18,6 +21,7 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setErrorMessage('')
 
     try {
       const response = await fetch('/api/login', {
@@ -29,17 +33,21 @@ function Login() {
       const result = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        alert(result.message || 'Login failed')
+        setErrorMessage(result.message || 'Login failed')
         return
       }
 
-      // store logged in user (useful later)
-      localStorage.setItem('user', JSON.stringify(result.user))
+      const didStoreSession = storeAuthSession({ token: result.token, user: result.user })
+      if (!didStoreSession) {
+        setErrorMessage('Login response is missing a session token. Restart backend and try again.')
+        return
+      }
+
       // go to home page
       navigate('/home')
     } catch (error) {
       console.error('Error:', error)
-      alert('Login failed')
+      setErrorMessage('Unable to reach the server. Please try again.')
     }
   }
 
@@ -76,6 +84,8 @@ function Login() {
 
           <button type="submit" className="auth-button arcade-btn">Login</button>
         </form>
+
+        {errorMessage && <p className="auth-error">{errorMessage}</p>}
 
         <p className="auth-footer">
           Don't have an account? <Link to="/register">Sign up</Link>
