@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Notice from "../UI/Notice";
 import Navbar from "../Store/Navbar";
@@ -7,6 +7,20 @@ import { clearCart, fetchCart, removeItemFromCart, updateCartItemQuantity } from
 import "./Checkout.css";
 
 const TAX_RATE = 0.13;
+const FORM_FIELDS = [
+  "firstName",
+  "lastName",
+  "email",
+  "address",
+  "city",
+  "postalCode",
+  "cardName",
+  "cardNumber",
+  "cardExpiry",
+  "cardCVV"
+];
+const DELIVERY_FIELDS = ["firstName", "lastName", "email", "address", "city", "postalCode"];
+const PAYMENT_FIELDS = ["cardName", "cardNumber", "cardExpiry", "cardCVV"];
 
 const initialFormData = {
   firstName: "",
@@ -21,9 +35,42 @@ const initialFormData = {
   cardCVV: ""
 };
 
+const readDraftFromStorage = (userId) => {
+  if (!userId) {
+    return null;
+  }
+
+  try {
+    const raw = localStorage.getItem(`checkout:draft:${userId}`);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+    return { ...initialFormData, ...parsed };
+  } catch {
+    return null;
+  }
+};
+
+const clearDraftFromStorage = (userId) => {
+  if (!userId) {
+    return;
+  }
+  try {
+    localStorage.removeItem(`checkout:draft:${userId}`);
+  } catch {
+    // Ignore localStorage failures.
+  }
+};
+
 export default function Checkout() {
   const [search, setSearch] = useState("");
-  const [formData, setFormData] = useState(initialFormData);
+  const [user] = useState(() => getStoredUser());
+  const [token] = useState(() => getAuthToken());
+  const [formData, setFormData] = useState(() => readDraftFromStorage(getStoredUser()?.id) || initialFormData);
   const [orderConfirmed, setOrderConfirmed] = useState(false);
   const [confirmedOrderDetails, setConfirmedOrderDetails] = useState(null);
   const [cart, setCart] = useState([]);
@@ -31,10 +78,9 @@ export default function Checkout() {
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [notice, setNotice] = useState({ type: "info", message: "" });
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
+  const [draftState, setDraftState] = useState("idle");
 
   const navigate = useNavigate();
-  const [user] = useState(() => getStoredUser());
-  const [token] = useState(() => getAuthToken());
 
   const cartCount = useMemo(
     () => cart.reduce((total, item) => total + (item.quantity || 1), 0),
@@ -48,7 +94,50 @@ export default function Checkout() {
   const tax = subtotal * TAX_RATE;
   const total = subtotal + tax;
 
-  const loadCart = async () => {
+  const completionCount = useMemo(
+    () => FORM_FIELDS.reduce((count, field) => count + (String(formData[field]).trim() ? 1 : 0), 0),
+    [formData]
+  );
+
+  const completionPercent = useMemo(
+    () => Math.round((completionCount / FORM_FIELDS.length) * 100),
+    [completionCount]
+  );
+
+  const hasDraftContent = useMemo(
+    () => FORM_FIELDS.some((field) => String(formData[field]).trim() !== ""),
+    [formData]
+  );
+
+  const deliveryComplete = useMemo(
+    () => DELIVERY_FIELDS.every((field) => String(formData[field]).trim() !== ""),
+    [formData]
+  );
+
+  const paymentComplete = useMemo(
+    () => PAYMENT_FIELDS.every((field) => String(formData[field]).trim() !== ""),
+    [formData]
+  );
+
+  const activeStep = useMemo(() => {
+    if (orderConfirmed) {
+      return 4;
+    }
+    if (cart.length === 0) {
+      return 1;
+    }
+    if (!deliveryComplete) {
+      return 2;
+    }
+    if (!paymentComplete) {
+      return 3;
+    }
+    return 3;
+  }, [cart.length, deliveryComplete, orderConfirmed, paymentComplete]);
+
+  const progressPercent = orderConfirmed ? 100 : completionPercent;
+
+  const loadCart = useCallback(async () => {
     setIsLoadingCart(true);
     try {
       const items = await fetchCart();
@@ -59,7 +148,7 @@ export default function Checkout() {
     } finally {
       setIsLoadingCart(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (!user || !token) {
@@ -67,13 +156,43 @@ export default function Checkout() {
       return;
     }
 
+    const draft = readDraftFromStorage(user.id);
+    if (draft) {
+      setFormData(draft);
+      setDraftState("saved");
+    }
+
     loadCart();
-  }, [navigate, token, user]);
+  }, [loadCart, navigate, token, user]);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (!user?.id || orderConfirmed) {
+      return undefined;
+    }
+
+    if (!hasDraftContent) {
+      clearDraftFromStorage(user.id);
+      setDraftState("idle");
+      return undefined;
+    }
+
+    setDraftState("saving");
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(`checkout:draft:${user.id}`, JSON.stringify(formData));
+        setDraftState("saved");
+      } catch {
+        setDraftState("idle");
+      }
+    }, 280);
+
+    return () => clearTimeout(timer);
+  }, [formData, hasDraftContent, orderConfirmed, user?.id]);
 
   const onLogout = async () => {
     try {
@@ -197,6 +316,8 @@ export default function Checkout() {
       });
 
       await clearCart();
+      clearDraftFromStorage(user?.id);
+      setDraftState("idle");
       setCart([]);
       setOrderConfirmed(true);
       setNotice({ type: "success", message: "Order placed successfully." });
@@ -211,6 +332,8 @@ export default function Checkout() {
     setNotice({ type: "info", message: "" });
     try {
       await clearCart();
+      clearDraftFromStorage(user?.id);
+      setDraftState("idle");
       setCart([]);
       setOrderConfirmed(false);
       setConfirmedOrderDetails(null);
@@ -235,7 +358,7 @@ export default function Checkout() {
         <div className="checkout__titleRow">
           <div>
             <h1 className="checkout__title">Checkout</h1>
-            <p className="checkout__subtitle">Review your cart and place your order.</p>
+            <p className="checkout__subtitle">Review your cart, finish delivery details, and place your order.</p>
           </div>
 
           <div className="checkout__controls">
@@ -255,6 +378,33 @@ export default function Checkout() {
             </button>
           </div>
         </div>
+
+        <section className="checkout__progressPanel" aria-label="Checkout progress">
+          <div className="checkout__progressMeta">
+            <strong>Progress</strong>
+            <span>{orderConfirmed ? "Complete" : `${completionPercent}% complete`}</span>
+          </div>
+          <div className="checkout__progressBar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
+            <span style={{ width: `${progressPercent}%` }} />
+          </div>
+          <ol className="checkout__steps">
+            <li className={activeStep >= 1 ? "is-active" : ""}>1. Review</li>
+            <li className={activeStep >= 2 ? "is-active" : ""}>2. Delivery</li>
+            <li className={activeStep >= 3 ? "is-active" : ""}>3. Payment</li>
+            <li className={activeStep >= 4 ? "is-active" : ""}>4. Confirm</li>
+          </ol>
+          {!orderConfirmed && (
+            <p className={`checkout__saveState checkout__saveState--${draftState}`}>
+              {isSubmittingOrder
+                ? "Placing order..."
+                : draftState === "saving"
+                  ? "Saving draft..."
+                  : hasDraftContent
+                    ? "Draft saved"
+                    : "Start entering delivery and payment details"}
+            </p>
+          )}
+        </section>
 
         {isLoadingCart ? (
           <div className="checkout__emptyCart">Loading your cart...</div>
@@ -279,7 +429,7 @@ export default function Checkout() {
                               }}
                             />
                           ) : (
-                            <div style={{ color: "var(--checkout-subtext)", fontSize: "12px" }}>No Image</div>
+                            <div className="checkout__noImage">No Image</div>
                           )}
                         </div>
 
@@ -338,14 +488,14 @@ export default function Checkout() {
             </div>
 
             <div className="checkout__right">
-              <h2 className="checkout__sectionTitle">Checkout</h2>
+              <h2 className="checkout__sectionTitle">Payment</h2>
               {orderConfirmed ? (
                 <div className="checkout__confirmation">
                   <div className="checkout__confirmIcon">OK</div>
                   <h3>Order Confirmed</h3>
                   <p>Thank you, {confirmedOrderDetails?.firstName || "Customer"}. Your order has been placed successfully.</p>
                   <p className="checkout__confirmDetails">
-                    A confirmation email will be sent to {confirmedOrderDetails?.email || "your email"}
+                    A confirmation email will be sent to {confirmedOrderDetails?.email || "your email"}.
                   </p>
                   <div className="checkout__paymentSummary">
                     <h4>Payment</h4>
@@ -390,9 +540,7 @@ export default function Checkout() {
                     <input type="text" name="postalCode" value={formData.postalCode} onChange={handleFormChange} required placeholder="M4N 1K1" />
                   </div>
 
-                  <div className="checkout__sectionTitle" style={{ marginTop: "12px" }}>
-                    Payment Information
-                  </div>
+                  <h3 className="checkout__formSubTitle">Payment Information</h3>
 
                   <div className="checkout__formGroup">
                     <label>Cardholder Name</label>
@@ -412,13 +560,13 @@ export default function Checkout() {
                     />
                   </div>
 
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <div className="checkout__formGroup" style={{ flex: 1 }}>
+                  <div className="checkout__split">
+                    <div className="checkout__formGroup">
                       <label>Expiry (MM/YY)</label>
                       <input type="text" name="cardExpiry" value={formData.cardExpiry} onChange={handleFormChange} required placeholder="MM/YY" />
                     </div>
 
-                    <div className="checkout__formGroup" style={{ width: "120px" }}>
+                    <div className="checkout__formGroup checkout__formGroup--narrow">
                       <label>CVV</label>
                       <input type="password" name="cardCVV" value={formData.cardCVV} onChange={handleFormChange} required placeholder="123" />
                     </div>

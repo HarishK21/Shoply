@@ -108,6 +108,8 @@ export default function Realtime() {
     setDraft("");
   };
 
+  const remainingChars = 300 - draft.length;
+
   return (
     <div className="realtime-page">
       <Navbar
@@ -129,6 +131,7 @@ export default function Realtime() {
               {isConnected ? "Connected" : "Disconnected"}
             </span>
             <span className="realtime-status">Online: {onlineCount}</span>
+            <span className="realtime-status">Messages: {messages.length}</span>
             <button
               type="button"
               className="themeToggle"
@@ -178,9 +181,12 @@ export default function Realtime() {
               maxLength={300}
               disabled={!isConnected}
             />
-            <button type="submit" disabled={!isConnected || draft.trim() === ""}>
-              Send
-            </button>
+            <div className="realtime-composeActions">
+              <span className="realtime-remaining">{remainingChars} chars</span>
+              <button type="submit" disabled={!isConnected || draft.trim() === ""}>
+                Send
+              </button>
+            </div>
           </form>
         </section>
       </main>

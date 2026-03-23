@@ -9,6 +9,7 @@ export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("newest");
+  const [showFilters, setShowFilters] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
@@ -119,6 +120,20 @@ export default function Orders() {
           </div>
 
           <div className="home__controls">
+            <div className="badge" aria-label={`${filtered.length} visible orders`}>
+              {filtered.length} orders
+            </div>
+
+            <button
+              type="button"
+              className="home__filterToggle"
+              aria-expanded={showFilters}
+              aria-controls="orders-filter-bar"
+              onClick={() => setShowFilters((current) => !current)}
+            >
+              {showFilters ? "Hide Filters" : "Show Filters"}
+            </button>
+
             <button type="button" className="themeToggle" onClick={toggleTheme} aria-label="Toggle light and dark mode">
               <span className="themeToggle__icon">{theme === "dark" ? "Dark" : "Light"}</span>
               <span className={`themeToggle__track ${theme === "light" ? "isOn" : ""}`}>
@@ -128,21 +143,23 @@ export default function Orders() {
           </div>
         </div>
 
-        <section className="ordersFilterBar" aria-label="Sort and filter orders">
-          <div className="ordersFilterBar__group">
-            <label htmlFor="sort-select">Sort</label>
-            <select id="sort-select" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-              <option value="newest">Newest First</option>
-              <option value="oldest">Oldest First</option>
-              <option value="price-high">Total: High to Low</option>
-              <option value="price-low">Total: Low to High</option>
-            </select>
-          </div>
+        {showFilters && (
+          <section id="orders-filter-bar" className="ordersFilterBar" aria-label="Sort and filter orders">
+            <div className="ordersFilterBar__group">
+              <label htmlFor="sort-select">Sort</label>
+              <select id="sort-select" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="price-high">Total: High to Low</option>
+                <option value="price-low">Total: Low to High</option>
+              </select>
+            </div>
 
-          <button type="button" className="ordersFilterBar__clear" onClick={clearFilters}>
-            Clear Filters
-          </button>
-        </section>
+            <button type="button" className="ordersFilterBar__clear" onClick={clearFilters}>
+              Clear Filters
+            </button>
+          </section>
+        )}
 
         {isLoading ? (
           <div className="home__emptyState">Loading orders...</div>

@@ -252,107 +252,60 @@ const ProductDetails = () => {
               </div>
             </div>
 
-            <div
-              className="card"
-              style={{
-                marginTop: "20px",
-                display: "grid",
-                gridTemplateColumns: "minmax(280px, 1fr) 2fr",
-                gap: "40px",
-                alignItems: "start"
-              }}
-            >
-              <div
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  backgroundColor: "rgba(255,255,255,0.02)",
-                  borderRadius: "16px",
-                  padding: "40px",
-                  border: "1px solid var(--border)",
-                  minHeight: "380px"
-                }}
-              >
+            <div className="card productDetailsCard">
+              <div className="productDetailsCard__media">
                 {product.hasImage && typeof product.imageURL === "string" && product.imageURL.trim() ? (
                   <img
                     src={product.imageURL.trim().startsWith("http") ? product.imageURL.trim() : `${window.location.origin}${product.imageURL.trim()}`}
                     alt={product.name}
-                    style={{
-                      maxWidth: "100%",
-                      maxHeight: "380px",
-                      objectFit: "contain",
-                      filter: "drop-shadow(0 10px 20px rgba(0,0,0,0.2))"
-                    }}
                     onError={(event) => {
                       event.currentTarget.style.display = "none";
                     }}
                   />
                 ) : (
-                  <div style={{ color: "var(--home-subtext)", fontStyle: "italic" }}>No image available</div>
+                  <div className="productDetailsCard__placeholder">No image available</div>
                 )}
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div className="productDetailsCard__info">
                 <div>
-                  <div style={{ fontSize: "1.8rem", color: "var(--accent-color)", fontWeight: "800", letterSpacing: "-0.5px" }}>
-                    {product.name}
-                  </div>
-                  <div className="badge" style={{ marginTop: "10px", display: "inline-block" }}>
+                  <h2 className="productDetailsCard__name">{product.name}</h2>
+                  <div className="badge productDetailsCard__id">
                     Item ID: {product.id}
                   </div>
                 </div>
 
-                <div style={{ borderTop: "1px solid var(--border)", paddingTop: "16px" }}>
-                  <h3 style={{ marginBottom: "10px", fontSize: "16px", fontWeight: "700" }}>About this item</h3>
-                  <p style={{ lineHeight: "1.7", color: "var(--home-subtext)", fontSize: "15px" }}>{product.description || "No description provided."}</p>
+                <div className="productDetailsCard__section">
+                  <h3 className="productDetailsCard__sectionTitle">About This Item</h3>
+                  <p>{product.description || "No description provided."}</p>
                 </div>
 
                 {product.postedBy && (
-                  <div style={{ fontSize: "14px", opacity: 0.7 }}>
-                    Seller: {product.postedBy}
-                  </div>
+                  <div className="productDetailsCard__seller">Seller: {product.postedBy}</div>
                 )}
 
-                <div style={{ fontSize: "2rem", color: "var(--accent-color)", fontWeight: "800" }}>
-                  ${Number(product.price).toFixed(2)}
-                </div>
+                <div className="productDetailsCard__price">${Number(product.price).toFixed(2)}</div>
 
-                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                  <button type="button" className="addToCartBtn" onClick={addToCart} style={{ flex: 1 }} disabled={isAddingToCart}>
+                <div className="productDetailsCard__actions">
+                  <button type="button" className="addToCartBtn" onClick={addToCart} disabled={isAddingToCart}>
                     {isAddingToCart ? "Adding..." : "Add to Cart"}
                   </button>
 
                   {canManageProduct && (
-                    <button
-                      type="button"
-                      className="addToCartBtn"
-                      onClick={openEditForm}
-                      style={{
-                        flex: 1,
-                        background: "linear-gradient(135deg, #f59e0b, #d97706)",
-                        boxShadow: "0 4px 16px rgba(245, 158, 11, 0.3)"
-                      }}
-                    >
+                    <button type="button" className="addToCartBtn addToCartBtn--warning" onClick={openEditForm}>
                       Edit Product
                     </button>
                   )}
 
-                  <button type="button" className="addToCartBtn backBtn" onClick={() => navigate("/home")} style={{ flex: 1 }}>
+                  <button type="button" className="addToCartBtn backBtn" onClick={() => navigate("/home")}>
                     Back to Home
                   </button>
 
                   {canManageProduct && (
                     <button
                       type="button"
-                      className="addToCartBtn"
+                      className="addToCartBtn addToCartBtn--danger"
                       onClick={requestDeleteProduct}
-                      style={{
-                        flex: 1,
-                        background: "linear-gradient(135deg, #ef4444, #dc2626)",
-                        boxShadow: "0 4px 16px rgba(239, 68, 68, 0.3)"
-                      }}
                       disabled={isDeleting}
                     >
                       Delete Product
@@ -365,32 +318,31 @@ const ProductDetails = () => {
             {showEditForm && (
               <div className="editModalOverlay" onClick={(event) => event.target === event.currentTarget && closeEditForm()}>
                 <div className="editModalCard">
-                  <h3 style={{ marginTop: 0, marginBottom: "8px", fontSize: "20px", fontWeight: "700" }}>Edit Product</h3>
-                  <p style={{ margin: "0 0 14px", color: "var(--home-subtext)" }}>Update fields and save changes.</p>
+                  <h3>Edit Product</h3>
+                  <p className="editModalCard__subtitle">Update fields and save changes.</p>
                   <form onSubmit={submitEdit}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div className="editModalCard__grid">
                       <input name="name" placeholder="Name" value={editData.name} onChange={handleEditChange} required />
                       <input name="postedBy" placeholder="Seller" value={editData.postedBy} onChange={handleEditChange} />
                       <input name="price" placeholder="Price" type="number" step="0.01" value={editData.price} onChange={handleEditChange} required />
                       <input name="imageURL" placeholder="Image URL" value={editData.imageURL} onChange={handleEditChange} />
                     </div>
-                    <div style={{ marginTop: 12 }}>
+                    <div className="editModalCard__field">
                       <textarea
                         name="description"
                         placeholder="Description"
                         value={editData.description}
                         onChange={handleEditChange}
                         rows={4}
-                        style={{ width: "100%", resize: "vertical" }}
                       />
                     </div>
-                    <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 12 }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "14px" }}>
+                    <div className="editModalCard__check">
+                      <label>
                         <input type="checkbox" name="hasImage" checked={editData.hasImage} onChange={handleEditChange} />
                         Has Image
                       </label>
                     </div>
-                    <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                    <div className="editModalCard__actions">
                       <button type="button" onClick={closeEditForm} disabled={isSavingEdit}>
                         Cancel
                       </button>

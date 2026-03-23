@@ -22,6 +22,7 @@ export default function Home() {
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
   const [sortBy, setSortBy] = useState("none");
+  const [showFilters, setShowFilters] = useState(true);
   const [notice, setNotice] = useState({ type: "info", message: "" });
 
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
@@ -219,6 +220,16 @@ export default function Home() {
               {filtered.length} items
             </div>
 
+            <button
+              type="button"
+              className="home__filterToggle"
+              aria-expanded={showFilters}
+              aria-controls="home-filter-bar"
+              onClick={() => setShowFilters((current) => !current)}
+            >
+              {showFilters ? "Hide Filters" : "Show Filters"}
+            </button>
+
             <button type="button" className="home__addBtn" onClick={openAddForm}>
               Add Item
             </button>
@@ -270,42 +281,53 @@ export default function Home() {
           </div>
         )}
 
-        <section className="homeFilterBar" aria-label="Filter and sort products">
-          <div className="homeFilterBar__group">
-            <label htmlFor="filter-min">Price Range</label>
-            <input
-              id="filter-min"
-              type="number"
-              placeholder="Min"
-              value={priceMin}
-              onChange={(event) => setPriceMin(event.target.value)}
-            />
-            <span>to</span>
-            <input
-              id="filter-max"
-              type="number"
-              placeholder="Max"
-              value={priceMax}
-              onChange={(event) => setPriceMax(event.target.value)}
-            />
-          </div>
+        {showFilters && (
+          <section id="home-filter-bar" className="homeFilterBar" aria-label="Filter and sort products">
+            <div className="homeFilterBar__group">
+              <label htmlFor="filter-min">Price Range</label>
+              <input
+                id="filter-min"
+                type="number"
+                placeholder="Min"
+                value={priceMin}
+                onChange={(event) => setPriceMin(event.target.value)}
+              />
+              <span>to</span>
+              <input
+                id="filter-max"
+                type="number"
+                placeholder="Max"
+                value={priceMax}
+                onChange={(event) => setPriceMax(event.target.value)}
+              />
+            </div>
 
-          <div className="homeFilterBar__group">
-            <label htmlFor="sort-select">Sort</label>
-            <select id="sort-select" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-              <option value="none">None</option>
-              <option value="price-asc">Price: Low to High</option>
-              <option value="price-desc">Price: High to Low</option>
-            </select>
-          </div>
+            <div className="homeFilterBar__group">
+              <label htmlFor="sort-select">Sort</label>
+              <select id="sort-select" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+                <option value="none">None</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+              </select>
+            </div>
 
-          <button type="button" className="homeFilterBar__clear" onClick={clearFilters} disabled={!hasFilters}>
-            Clear Filters
-          </button>
-        </section>
+            <button type="button" className="homeFilterBar__clear" onClick={clearFilters} disabled={!hasFilters}>
+              Clear Filters
+            </button>
+          </section>
+        )}
 
         {isLoading ? (
-          <div className="home__emptyState">Loading products...</div>
+          <div className="grid grid--loading" aria-hidden="true">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <article key={`skeleton-${index}`} className="card card--skeleton">
+                <div className="card__media card__media--skeleton" />
+                <div className="card__line card__line--title" />
+                <div className="card__line card__line--price" />
+                <div className="card__line card__line--link" />
+              </article>
+            ))}
+          </div>
         ) : loadError ? (
           <Notice type="error" message={loadError} actionLabel="Retry" onAction={loadItems} />
         ) : filtered.length === 0 ? (

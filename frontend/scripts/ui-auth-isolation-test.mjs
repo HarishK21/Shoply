@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 
-const baseUrl = process.env.SHOPLY_BASE_URL || 'http://127.0.0.1:3001';
+const baseUrl = process.env.SHOPLY_BASE_URL || 'http://127.0.0.1:5173';
 const suffix = Date.now();
 
 const userA = {
@@ -15,16 +15,6 @@ const userB = {
   password: 'Pass1234!'
 };
 
-const waitForAlertAndAccept = async (page) => {
-  return new Promise((resolve) => {
-    page.once('dialog', async (dialog) => {
-      const message = dialog.message();
-      await dialog.accept();
-      resolve(message);
-    });
-  });
-};
-
 const registerUser = async (page, user) => {
   await page.goto(`${baseUrl}/register`, { waitUntil: 'domcontentloaded' });
   await page.fill('input[name="name"]', user.name);
@@ -32,11 +22,14 @@ const registerUser = async (page, user) => {
   await page.fill('input[name="password"]', user.password);
   await page.fill('input[name="confirmPassword"]', user.password);
 
-  const alertPromise = waitForAlertAndAccept(page);
   await page.click('button[type="submit"]');
-  const message = await alertPromise;
-  if (!message.toLowerCase().includes('successful')) {
-    throw new Error(`Registration failed for ${user.email}: ${message}`);
+  const reachedLogin = await page
+    .waitForURL('**/login', { timeout: 10000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!reachedLogin) {
+    const errorText = await page.locator('.ui-notice__message').first().textContent().catch(() => null);
+    throw new Error(`Registration failed for ${user.email}. UI message: ${errorText || 'none shown'}`);
   }
 };
 
@@ -52,7 +45,7 @@ const loginUser = async (page, user) => {
     .catch(() => false);
 
   if (!homeReached) {
-    const errorText = await page.locator('.auth-error').first().textContent().catch(() => null);
+    const errorText = await page.locator('.ui-notice__message').first().textContent().catch(() => null);
     throw new Error(`Login failed for ${user.email}. UI error: ${errorText || 'none shown'}`);
   }
 };
@@ -72,9 +65,13 @@ const addHomeItemToCart = async (page, cardIndex) => {
   await card.locator('.card__link').click();
   await page.waitForURL('**/product/*', { timeout: 8000 });
 
-  const alertPromise = waitForAlertAndAccept(page);
   await page.locator('button.addToCartBtn').first().click();
-  await alertPromise;
+
+  const toast = page.locator('.ui-notice__message').filter({ hasText: 'added to your cart' }).first();
+  const toastVisible = await toast.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false);
+  if (!toastVisible) {
+    throw new Error('Add-to-cart confirmation notice did not appear.');
+  }
 
   return itemName;
 };
