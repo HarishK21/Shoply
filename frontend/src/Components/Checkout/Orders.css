@@ -2,102 +2,99 @@
 
 .ordersFilterBar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 18px;
-  padding: 12px;
-  border-radius: 14px;
-  border: 1px solid var(--input-border);
-  background: color-mix(in srgb, var(--surface-2) 82%, transparent);
-  box-shadow: var(--shadow-soft);
+  gap: 2rem;
+  margin-bottom: var(--spacing-6);
+  padding: var(--spacing-6);
+  background: var(--surface-container-low);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .ordersFilterBar__group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 1rem;
 }
 
 .ordersFilterBar__group label {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-size: 0.875rem;
   text-transform: uppercase;
-  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  color: var(--on-surface-variant);
 }
 
 .ordersFilterBar__group select {
-  min-width: 190px;
-  height: 36px;
-  border-radius: 10px;
-  border: 1px solid var(--input-border);
-  background: var(--input-bg);
-  color: var(--home-text);
-  font-size: 13px;
-  font-weight: 700;
-  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(196, 199, 199, 0.3);
+  padding: 0.5rem 0;
+  font-size: 1rem;
+  border-radius: 0;
+  color: var(--primary);
+  min-width: 200px;
 }
 
 .ordersFilterBar__group select:focus {
   outline: none;
-  border-color: var(--border-strong);
-  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.14);
+  border-bottom: 1px solid var(--secondary);
+  box-shadow: none;
 }
 
 .ordersFilterBar__clear {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--primary);
+  padding: 0 0 2px 0;
+  color: var(--primary);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.875rem;
+  letter-spacing: 0.05em;
+  border-radius: 0;
   margin-left: auto;
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--danger) 36%, transparent);
-  background: color-mix(in srgb, var(--danger) 16%, transparent);
-  color: var(--home-text);
-  font-weight: 700;
-  font-size: 13px;
-  padding: 8px 11px;
-  transition: transform 0.2s ease, filter 0.2s ease;
 }
-
 .ordersFilterBar__clear:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.06);
+  transform: none;
+  filter: none;
+  border-bottom-color: var(--secondary);
 }
 
 .ordersList {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--spacing-6);
 }
 
 .orderCard {
-  border-radius: 16px;
-  border: 1px solid var(--card-border);
-  background: var(--card-bg);
-  box-shadow: var(--shadow-soft);
-  padding: 14px;
+  background: var(--surface-container-lowest);
+  padding: 3rem;
+  border-radius: 0;
+  border: none;
+  box-shadow: var(--shadow-lift);
 }
 
 .orderCard__header {
+  border-bottom: 1px solid rgba(196, 199, 199, 0.3);
+  padding-bottom: 2rem;
+  margin-bottom: 2rem;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 14px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--card-border);
 }
 
 .orderCard__header h3 {
-  margin: 0;
   font-family: var(--font-display);
-  font-size: 28px;
-  line-height: 1.02;
-  color: var(--text-strong);
+  font-size: 2.5rem;
+  font-weight: 400;
+  color: var(--primary);
+  margin: 0;
 }
 
 .orderCard__header p {
-  margin: 8px 0 0;
-  color: var(--home-subtext);
-  font-size: 12px;
+  margin: 0.5rem 0 0;
+  color: var(--on-surface-variant);
 }
 
 .orderCard__total {
@@ -105,127 +102,81 @@
 }
 
 .orderCard__total span {
-  color: var(--text-soft);
-  font-size: 12px;
-  letter-spacing: 0.05em;
+  font-size: 0.875rem;
   text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  color: var(--on-surface-variant);
 }
 
 .orderCard__total strong {
+  font-family: var(--font-body);
+  font-size: 2rem;
+  color: var(--secondary);
+  font-weight: 400;
   display: block;
-  margin-top: 6px;
-  font-family: var(--font-display);
-  font-size: 28px;
-  line-height: 1;
-  color: var(--accent-color);
+  margin-top: 0.5rem;
 }
 
 .orderCard__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 14px;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
 }
 
-.orderCard__grid h4,
-.orderCard__sectionLabel,
-.orderCard__payment h4 {
-  margin: 0 0 8px;
-  font-size: 12px;
-  letter-spacing: 0.05em;
+.orderCard__grid h4, .orderCard__sectionLabel, .orderCard__payment h4 {
+  font-size: 0.875rem;
   text-transform: uppercase;
-  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  color: var(--on-surface-variant);
+  margin: 0 0 1rem 0;
 }
 
 .orderCard__grid p {
+  color: var(--primary);
+  font-size: 1rem;
   margin: 0;
-  color: var(--text-strong);
-  font-size: 14px;
-  line-height: 1.45;
 }
-
 .orderCard__grid p + p {
-  margin-top: 4px;
-  color: var(--home-subtext);
-  font-size: 13px;
+  margin-top: 0.5rem;
+  color: var(--on-surface-variant);
 }
 
 .orderCard__items {
   display: flex;
   flex-direction: column;
-  gap: 7px;
 }
 
 .orderCard__item {
+  border: none;
+  padding: 1rem 0;
+  border-bottom: 1px solid rgba(196, 199, 199, 0.3);
+  background: transparent;
+  border-radius: 0;
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--border-soft) 70%, transparent);
-  background: color-mix(in srgb, var(--surface-2) 90%, transparent);
-  padding: 10px;
 }
 
 .orderCard__item p {
+  color: var(--primary);
+  font-weight: 600;
   margin: 0;
-  font-size: 13px;
-  color: var(--text-strong);
-  font-weight: 700;
 }
 
 .orderCard__item small {
-  color: var(--home-subtext);
-  font-size: 12px;
-}
-
-.orderCard__empty {
-  margin: 0;
-  color: var(--home-subtext);
-  font-size: 13px;
+  color: var(--on-surface-variant);
 }
 
 .orderCard__payment {
-  margin-top: 12px;
-  padding-top: 11px;
-  border-top: 1px solid var(--card-border);
+  border-top: 1px solid rgba(196, 199, 199, 0.3);
+  padding-top: 2rem;
+  margin-top: 2rem;
 }
 
 .orderCard__payment div {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
-}
-
-.orderCard__payment p {
-  margin: 0;
-  font-size: 13px;
-}
-
-.orderCard__payment p:last-child {
-  color: var(--home-subtext);
-}
-
-@media (max-width: 760px) {
-  .ordersFilterBar__clear {
-    margin-left: 0;
-  }
-
-  .orderCard__header {
-    flex-direction: column;
-  }
-
-  .orderCard__total {
-    text-align: left;
-  }
-
-  .orderCard__grid {
-    grid-template-columns: 1fr;
-  }
-
-  .orderCard__item,
-  .orderCard__payment div {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+  margin-bottom: 0.5rem;
 }

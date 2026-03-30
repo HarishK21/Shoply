@@ -2,13 +2,13 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  color: var(--home-text);
+  background-color: var(--surface);
 }
 
 .realtime-wrap {
-  width: min(1180px, 100%);
+  width: min(1440px, 100%);
   margin: 0 auto;
-  padding: 30px 24px 60px;
+  padding: var(--spacing-20) 2rem var(--spacing-24);
   flex: 1;
 }
 
@@ -16,217 +16,174 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  gap: 14px;
-  margin-bottom: 16px;
+  margin-bottom: var(--spacing-6);
 }
 
 .realtime-title {
-  margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(30px, 4vw, 40px);
-  line-height: 1.05;
+  font-size: 3.5rem;
+  font-weight: 400;
+  color: var(--primary);
+  margin: 0;
 }
 
 .realtime-subtitle {
-  margin: 8px 0 0;
-  color: var(--home-subtext);
-  font-size: 14px;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  color: var(--on-surface-variant);
+  margin-top: 1rem;
 }
 
 .realtime-controls {
   display: flex;
-  gap: 8px;
+  gap: 1.5rem;
   align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
 .realtime-status {
-  font-size: 12px;
-  padding: 8px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--badge-border);
-  background: var(--badge-bg);
-  color: var(--badge-text);
-  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.875rem;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--on-surface-variant);
 }
 
 .realtime-status.is-online {
-  border-color: color-mix(in srgb, var(--success) 45%, transparent);
-  color: var(--success);
+  color: var(--secondary);
 }
-
 .realtime-status.is-offline {
-  border-color: color-mix(in srgb, var(--danger) 42%, transparent);
-  color: #fca5a5;
+  color: var(--primary);
 }
 
 .realtime-panel {
-  border-radius: 18px;
-  border: 1px solid var(--card-border);
-  background: var(--card-bg);
-  box-shadow: var(--shadow-card);
+  background: var(--surface-container-lowest);
+  border: none;
+  border-radius: 0;
+  box-shadow: var(--shadow-lift);
+  margin-top: 0;
+  height: 600px;
   display: flex;
   flex-direction: column;
-  min-height: 520px;
-  height: 72vh;
   overflow: hidden;
 }
 
 .realtime-feed {
   flex: 1;
-  padding: 14px;
+  padding: 2.5rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 1rem;
 }
 
 .realtime-empty {
   margin: auto;
-  color: var(--home-subtext);
-  text-align: center;
+  color: var(--on-surface-variant);
+  font-style: italic;
 }
 
 .realtime-message {
-  width: fit-content;
-  max-width: min(82%, 780px);
-  border-radius: 13px;
-  border: 1px solid var(--border-soft);
-  background: color-mix(in srgb, var(--surface-2) 86%, transparent);
-  padding: 9px 11px;
+  background: var(--surface-container-low);
+  border: none;
+  border-radius: 0;
+  padding: 1.5rem;
+  max-width: 80%;
 }
 
 .realtime-message.is-mine {
+  background: var(--surface);
+  border: 1px solid rgba(196, 199, 199, 0.3);
   margin-left: auto;
-  border-color: color-mix(in srgb, var(--accent-color) 55%, transparent);
-  background: color-mix(in srgb, var(--accent-color) 20%, var(--surface-2));
 }
 
 .realtime-message.is-system {
+  background: transparent;
+  border: none;
   margin: 0 auto;
-  max-width: 100%;
   text-align: center;
-  border-style: dashed;
-  color: var(--home-subtext);
-  background: color-mix(in srgb, var(--surface-2) 78%, transparent);
+  color: var(--on-surface-variant);
 }
 
 .realtime-message-head {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 5px;
-  font-size: 12px;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
 }
-
 .realtime-message-head strong {
-  color: var(--text-strong);
+  color: var(--primary);
 }
-
 .realtime-message-head time {
-  color: var(--text-soft);
+  color: var(--on-surface-variant);
 }
 
 .realtime-message p {
   margin: 0;
-  font-size: 14px;
-  line-height: 1.42;
-  color: var(--text-strong);
-  white-space: pre-wrap;
-  word-break: break-word;
+  font-size: 1rem;
+  color: var(--primary);
 }
 
 .realtime-compose {
-  border-top: 1px solid var(--border-soft);
-  padding: 11px;
+  background: var(--surface-container-lowest);
+  border-top: 1px solid rgba(196, 199, 199, 0.3);
+  padding: 2rem 2.5rem;
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 8px;
+  gap: 2rem;
   align-items: center;
-  background: color-mix(in srgb, var(--surface-2) 82%, transparent);
 }
 
 .realtime-compose input {
-  width: 100%;
-  min-height: 42px;
-  border-radius: 11px;
-  border: 1px solid var(--input-border);
-  background: var(--input-bg);
-  color: var(--text-strong);
-  padding: 10px 12px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.realtime-compose input::placeholder {
-  color: var(--text-soft);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(196, 199, 199, 0.3);
+  padding: 0.75rem 0;
+  font-size: 1rem;
+  border-radius: 0;
+  color: var(--primary);
 }
 
 .realtime-compose input:focus {
   outline: none;
-  border-color: var(--border-strong);
-  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.14);
+  border-bottom: 1px solid var(--secondary);
+  box-shadow: none;
+}
+.realtime-compose input::placeholder {
+  color: var(--outline);
 }
 
 .realtime-composeActions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 1.5rem;
 }
 
 .realtime-remaining {
-  font-size: 11px;
-  color: var(--text-soft);
-  font-weight: 700;
-  min-width: 60px;
-  text-align: right;
+  font-size: 0.875rem;
+  color: var(--on-surface-variant);
+  font-weight: 600;
 }
 
 .realtime-compose button {
-  min-height: 42px;
-  min-width: 94px;
-  border-radius: 11px;
-  border: none;
-  color: #f8fbff;
-  font-weight: 800;
   background: var(--accent-gradient);
+  border: none;
+  border-radius: 4px;
+  color: var(--on-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1rem 2rem;
 }
-
 .realtime-compose button:disabled {
   opacity: 0.5;
-  cursor: not-allowed;
-}
-
-@media (max-width: 760px) {
-  .realtime-wrap {
-    padding: 22px 14px 42px;
-  }
-
-  .realtime-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .realtime-controls {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .realtime-panel {
-    min-height: 460px;
-    height: 75vh;
-  }
-
-  .realtime-message {
-    max-width: 100%;
-  }
-
-  .realtime-compose {
-    grid-template-columns: 1fr;
-  }
-
-  .realtime-composeActions {
-    justify-content: flex-end;
-  }
 }
