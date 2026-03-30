@@ -1,18 +1,22 @@
 import { chromium } from 'playwright';
 
 const baseUrl = process.env.SHOPLY_BASE_URL || 'http://127.0.0.1:5173';
+const testPassword = process.env.SHOPLY_TEST_USER_PASSWORD;
+if (!testPassword) {
+  throw new Error('Missing SHOPLY_TEST_USER_PASSWORD environment variable.');
+}
 const suffix = Date.now();
 
 const userA = {
   name: `User A ${suffix}`,
   email: `auth_a_${suffix}@demo.com`,
-  password: 'Pass1234!'
+  password: testPassword
 };
 
 const userB = {
   name: `User B ${suffix}`,
   email: `auth_b_${suffix}@demo.com`,
-  password: 'Pass1234!'
+  password: testPassword
 };
 
 const registerUser = async (page, user) => {

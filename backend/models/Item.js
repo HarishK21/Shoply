@@ -2,13 +2,13 @@ const mongoose = require('mongoose');
 
 const itemSchema = new mongoose.Schema({
     id: { type: Number, unique: true },
-    name: { type: String, required: true },
-    description: { type: String, default: '' },
-    postedBy: { type: String, default: 'admin' },
+    name: { type: String, required: true, trim: true, maxlength: 120 },
+    description: { type: String, default: '', maxlength: 4000 },
+    postedBy: { type: String, default: 'seller', trim: true, maxlength: 80 },
     userId: { type: Number, required: true, ref: 'User' },
-    price: { type: Number, required: true },
+    price: { type: Number, required: true, min: 0.01, max: 1_000_000 },
     hasImage: { type: Boolean, default: false },
-    imageURL: { type: String, default: '' },
+    imageURL: { type: String, default: '', maxlength: 2048 },
 }, { timestamps: true });
 
 // Auto-increment ID pre-validate hook

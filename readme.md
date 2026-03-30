@@ -5,7 +5,7 @@
 ## 📜 Overview
 Shoply is a community-driven MERN Stack e-commerce platform for buying and selling a large variety of items on the our market. Users can create/edit listings for products, buy products from listings, and view their order history. Admins can manage items and delete them if necessary. 
 <br>
-In the future, additional functionality could be added, for example, filtering items by type, a more robust implementation to manage account and listings, hashing passwords and payment information to store more securely, adding security questions and a captcha, and some payment integration with libraries like Stripe JS.
+In the future, additional functionality could be added, for example, filtering items by type, a more robust implementation to manage account and listings, adding security questions and a captcha, and some payment integration with libraries like Stripe JS.
 
 
 <hr>
@@ -56,24 +56,26 @@ In the future, additional functionality could be added, for example, filtering i
    - `cd frontend`
    - `npm install`
    - `npm run dev` — open the localhost URL shown in the terminal.
-5. Sign in with a [seeded user](#-seeded-users) or create an account.
+5. Sign in with a [seeded user](#-seeded-users) (if configured) or create an account.
 
-**Environment (optional):** In `backend`, create a `.env` file and set `PORT` if you need a different port.
+**Environment:** In `backend`, create a `.env` file from `backend/.env.example`.
+- Required: `MONGODB_URI`
+- Optional: `PORT`, `SESSION_TTL_MS`, `REQUEST_BODY_LIMIT`, `API_RATE_LIMIT_WINDOW_MS`, `API_RATE_LIMIT_MAX`, `AUTH_RATE_LIMIT_WINDOW_MINUTES`, `AUTH_RATE_LIMIT_MAX`, `SEED_USERS_JSON`
 
 **Version control:** The project uses meaningful, descriptive commit messages to track changes (e.g. feature additions, bug fixes, docs updates).
 
 ## 👤 Seeded Users
-When the backend starts with an empty database, the following users are created automatically. You can sign in with any of these accounts:
+When the backend starts with an empty database, public demo users from `backend/data/users.json` are seeded automatically. You can sign in with any of these:
 
-| Name      | Email                     | Password     | Role  |
-|-----------|---------------------------|--------------|-------|
-| admin521  | admin521@gmail.com        | 521admin521  | admin |
-| Gill123   | gill123@gmail.com         | S1234        | user  |
-| test123   | test123@gmail.com         | test123      | user  |
-| Admin     | admin@gmail.com           | admin123     | admin |
-| Test      | unique_verify_2026@demo.com | password   | user  |
+| Name      | Email                        | Password     | Role  |
+|-----------|------------------------------|--------------|-------|
+| admin521  | admin521@gmail.com           | 521admin521  | admin |
+| Gill123   | gill123@gmail.com            | S1234        | user  |
+| test123   | test123@gmail.com            | test123      | user  |
+| Admin     | admin@gmail.com              | admin123     | admin |
+| Test      | unique_verify_2026@demo.com  | password     | user  |
 
-Use an **admin** account to access admin features (e.g. deleting items). Seeding only runs when there are no users in the database.
+`SEED_USERS_JSON` in `backend/.env` can override these defaults.
 
 ## 🛣️ Routes
 
@@ -105,14 +107,17 @@ Responses use JSON. Error responses include `{ success: false, message: "..." }`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/register` | Register. **Body:** `name`, `email`, `password` (all required). Returns 201 or 409 if email exists. |
-| `POST` | `/api/login` | Login. **Body:** `email`, `password`. Returns 200 + `{ success, message, user: { id, name, email, role } }` or 401. |
+| `POST` | `/api/register` | Register. **Body:** `name` (or `firstName` + `lastName`), `email`, `password`. Returns 201 or 409 if email exists. |
+| `POST` | `/api/login` | Login. **Body:** `email`, `password`. Returns 200 + `{ success, message, token, user: { id, name, email, role } }` or 401. |
+| `POST` | `/api/logout` | Logout current authenticated session. Requires bearer token. |
+| `GET` | `/api/me` | Return current authenticated user. Requires bearer token. |
 
 ### Orders (`/api`)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/order` | Create order. **Body:** `firstName`, `lastName`, `userId`, `email`, `address`, `city`, `postalCode`, `cardName`, `cardNumber`, `cardExpiry`, `cardCVV`, `totalPrice`, `items`. Returns 201 + saved order. |
+| `POST` | `/api/order` | Create order. **Body:** `firstName`, `lastName`, `email`, `address`, `city`, `postalCode`, `cardName`, `cardNumber`, `cardExpiry`, `cardCVV`, `totalPrice`, `items`. Returns 201 + saved order. |
+| `POST` | `/api/orders` | Alias of `/api/order`. |
 | `GET` | `/api/orders/:userID` | List orders for user. **Params:** `userID` (numeric). Returns 200 + array of orders (newest first). |
 
 ## 🗃️ Database Structure
@@ -129,5 +134,5 @@ Along the way we had many different challenges and successes, mainly with the se
 ## 💡 Future Enhancements
 - Further enhance UI
 - Payment Integration
-- Additional security features: password hashing, captcha codes, security questions
+- Additional anti-abuse features: captcha codes, security questions
 - User management menu
