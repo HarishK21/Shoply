@@ -1,126 +1,116 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Notice from "../UI/Notice";
-import { storeAuthSession } from "../../lib/auth";
-import "./Auth.css";
+import CyberBackdrop from "../UI/CyberBackdrop";
+import { apiFetch, storeAuthSession } from "../../lib/auth";
 
-function Login() {
+export default function Login() {
   const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  
+  const [isLoading, setIsLoading] = useState(false);
   const [notice, setNotice] = useState({ type: "info", message: "" });
-  const [formData, setFormData] = useState({
-    email: "",
-    password: ""
-  });
 
-  const handleChange = (event) => {
+  const handleLogin = async (e) => {
+    e.preventDefault();
     setNotice({ type: "info", message: "" });
-    setFormData((prev) => ({
-      ...prev,
-      [event.target.name]: event.target.value
-    }));
-  };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setNotice({ type: "info", message: "" });
-    setIsSubmitting(true);
+    if (!email.trim() || !password.trim()) {
+      return setNotice({ type: "warning", message: "Please fill in all fields." });
+    }
 
+    setIsLoading(true);
     try {
-      const response = await fetch("/api/login", {
+      const response = await apiFetch("/api/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: formData.email.trim(),
-          password: formData.password
-        })
+        body: JSON.stringify({ email: email.trim(), password: password.trim() })
       });
 
-      const result = await response.json().catch(() => ({}));
-
+      const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setNotice({
-          type: "error",
-          message: result.message || "Login failed. Check your email and password and try again."
-        });
-        return;
+        throw new Error(payload.message || "Invalid credentials.");
       }
 
-      const didStoreSession = storeAuthSession({ token: result.token, user: result.user });
-      if (!didStoreSession) {
-        setNotice({
-          type: "error",
-          message: "Login response was incomplete. Restart backend and try again."
-        });
-        return;
-      }
-
-      setNotice({ type: "success", message: "Login successful. Redirecting to home..." });
+      storeAuthSession({ token: payload.token, user: payload.user });
       navigate("/home");
+      
     } catch (error) {
-      console.error("Login error:", error);
-      setNotice({
-        type: "error",
-        message: "Unable to reach the server. Please check your connection and try again."
-      });
+      setNotice({ type: "error", message: error.message });
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-card" aria-busy={isSubmitting}>
-        <h2>Welcome Back</h2>
-        <p className="auth-subtitle">Log in to continue shopping and manage your orders.</p>
-
-        <Notice
-          type={notice.type}
-          message={notice.message}
-          onDismiss={notice.message ? () => setNotice({ type: "info", message: "" }) : undefined}
-          compact
-        />
-
-        <form onSubmit={handleSubmit} noValidate>
-          <div className="form-group">
-            <label htmlFor="login-email">Email</label>
-            <input
-              id="login-email"
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="you@example.com"
-              autoComplete="email"
-              required
-            />
+    <div className="min-h-screen bg-surface flex flex-col md:flex-row">
+      <div className="hidden md:flex md:w-1/2 bg-surface-container-highest relative overflow-hidden items-center justify-center">
+        <CyberBackdrop mode="login" />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-secondary/20"></div>
+        <div className="z-10 text-center p-12">
+          <h1 className="font-display text-5xl lg:text-7xl text-primary mb-6">Shoply</h1>
+          <p className="font-body text-xl text-on-surface-variant max-w-md mx-auto">
+            Welcome to Shoply. Sign in to continue shopping.
+          </p>
+        </div>
+      </div>
+      
+      <div className="flex-1 flex flex-col justify-center px-6 py-20 md:px-16 lg:px-32 relative">
+        <div className="max-w-md w-full mx-auto">
+          <div className="mb-12">
+            <h2 className="font-display text-4xl text-primary mb-2">Welcome Back</h2>
+            <p className="font-body text-on-surface-variant font-medium">Please sign in to access your account.</p>
           </div>
+          
+          {notice.message && (
+            <div className="mb-8">
+              <Notice type={notice.type} message={notice.message} onDismiss={() => setNotice({ type: "info", message: ""})} />
+            </div>
+          )}
 
-          <div className="form-group">
-            <label htmlFor="login-password">Password</label>
-            <input
-              id="login-password"
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Enter your password"
-              autoComplete="current-password"
-              required
-            />
-          </div>
+          <form onSubmit={handleLogin} className="space-y-8">
+            <div>
+              <label className="label-md block mb-2">Email Address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="ghost-input w-full"
+                required
+                autoFocus
+                placeholder="Ex. admin@gmail.com"
+              />
+            </div>
 
-          <button type="submit" className="auth-button arcade-btn" disabled={isSubmitting}>
-            {isSubmitting ? "Signing in..." : "Login"}
-          </button>
-        </form>
+            <div>
+              <label className="label-md block mb-2">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="ghost-input w-full"
+                required
+                placeholder="********"
+              />
+            </div>
 
-        <p className="auth-footer">
-          Do not have an account? <Link to="/register">Sign up</Link>
-        </p>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full arcade-btn py-4 text-base tracking-widest uppercase font-semibold text-on-secondary shadow-ambient mt-8 disabled:opacity-50"
+            >
+              {isLoading ? "Authenticating..." : "Sign In"}
+            </button>
+          </form>
+
+          <p className="mt-12 text-center text-sm text-on-surface-variant font-medium">
+            Don't have an account?{" "}
+            <Link to="/register" className="text-primary hover:text-secondary uppercase tracking-widest font-semibold border-b border-primary hover:border-secondary transition-colors pb-0.5 ml-1">
+              Create Account
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
 }
-
-export default Login;

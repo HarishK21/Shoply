@@ -1,7 +1,6 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { fetchCart } from "../../lib/cart";
-import "./Navbar.css";
 
 export default function Navbar({ user, onLogout, onSearchChange, searchValue = "" }) {
   const navigate = useNavigate();
@@ -39,66 +38,89 @@ export default function Navbar({ user, onLogout, onSearchChange, searchValue = "
   }, []);
 
   return (
-    <header className="nav">
-      <div className="nav__inner">
-        <div className="nav__left">
-          <button className="nav__brand" onClick={() => navigate("/home")}>
-            <div className="coin-container" aria-hidden="true">
-              <div className="coin">
-                <div className="coin-front">$</div>
-                <div className="coin-back">$</div>
-              </div>
-            </div>
-            SHOPLY
+    <header className="sticky top-0 z-50 glass-panel border-b border-outline-variant/30">
+      <div className="max-w-[1440px] mx-auto px-6 h-20 flex items-center justify-between">
+        
+        {/* Left: Brand & Links */}
+        <div className="flex items-center gap-10">
+          <button 
+            onClick={() => navigate("/home")}
+            className="font-display text-2xl tracking-tight text-primary hover:opacity-80 transition-opacity flex items-center gap-2"
+          >
+            Shoply
           </button>
 
-          <nav className="nav__links" aria-label="Main">
-            <NavLink to="/home" className={({ isActive }) => `nav__link ${isActive ? "is-active" : ""}`.trim()}>
-              Home
+          <nav className="hidden md:flex items-center gap-8">
+            <NavLink 
+              to="/home" 
+              className={({ isActive }) => `text-sm font-semibold uppercase tracking-widest ${isActive ? 'text-primary border-b-2 border-primary' : 'text-on-surface-variant hover:text-primary border-b-2 border-transparent'} py-1 transition-colors`}
+            >
+              Shop
             </NavLink>
-            <NavLink to="/orders" className={({ isActive }) => `nav__link ${isActive ? "is-active" : ""}`.trim()}>
-              My Orders
+            <NavLink 
+              to="/orders" 
+              className={({ isActive }) => `text-sm font-semibold uppercase tracking-widest ${isActive ? 'text-primary border-b-2 border-primary' : 'text-on-surface-variant hover:text-primary border-b-2 border-transparent'} py-1 transition-colors`}
+            >
+              Orders
             </NavLink>
-            <NavLink to="/realtime" className={({ isActive }) => `nav__link ${isActive ? "is-active" : ""}`.trim()}>
+            <NavLink 
+              to="/realtime" 
+              className={({ isActive }) => `text-sm font-semibold uppercase tracking-widest ${isActive ? 'text-primary border-b-2 border-primary' : 'text-on-surface-variant hover:text-primary border-b-2 border-transparent'} py-1 transition-colors`}
+            >
               Live Chat
             </NavLink>
           </nav>
         </div>
 
-        <div className="nav__center">
-          <div
-            className={`nav__search ${location.pathname !== "/home" || !hasSearch ? "nav__search--hidden" : ""}`}
-            aria-hidden={location.pathname !== "/home" || !hasSearch}
-          >
-            <span className="nav__searchIcon">Find</span>
+        {/* Center: Search */}
+        <div className={`flex-1 max-w-md mx-8 transition-opacity duration-300 ${location.pathname !== "/home" || !hasSearch ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
+          <div className="relative flex items-center w-full">
+            <svg className="w-5 h-5 text-on-surface-variant absolute left-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
             <input
-              className="nav__searchInput"
-              placeholder="Search products"
+              type="text"
+              className="w-full bg-transparent border-b border-outline-variant/50 pl-8 pr-2 py-2 text-sm text-primary focus:outline-none focus:border-primary transition-colors placeholder:text-outline"
+              placeholder="Search products..."
               value={searchValue}
-              onChange={(event) => onSearchChange?.(event.target.value)}
-              aria-label="Search products"
+              onChange={(e) => onSearchChange?.(e.target.value)}
             />
           </div>
         </div>
 
-        <div className="nav__right">
-          <button className="nav__cart" onClick={() => navigate("/checkout")} aria-label="Open cart and checkout">
-            <span className="nav__cartLabel">Cart</span>
-            {cartCount > 0 && <span className="nav__cartBadge">{cartCount}</span>}
+        {/* Right: Cart, User, Logout */}
+        <div className="flex items-center gap-6">
+          <button 
+            onClick={() => navigate("/checkout")}
+            className="flex items-center gap-2 text-primary hover:text-secondary transition-colors relative"
+            aria-label="Cart"
+          >
+            <span className="text-sm font-semibold uppercase tracking-widest">Cart</span>
+            {cartCount > 0 && (
+              <span className="absolute -top-2 -right-4 bg-secondary text-on-secondary text-[10px] font-bold rounded-full h-5 min-w-5 flex items-center justify-center px-1">
+                {cartCount}
+              </span>
+            )}
           </button>
 
-          <div className="nav__user" aria-label={`Signed in as ${user?.name || "Guest"}`}>
-            <div className="nav__avatar">{(user?.name?.[0] || "U").toUpperCase()}</div>
-            <div className="nav__userText">
-              <div className="nav__hello">Signed in</div>
-              <div className="nav__name">{user?.name || "Guest"}</div>
+          <div className="hidden sm:flex items-center gap-3 border-l border-outline-variant/30 pl-6">
+            <div className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-sm font-semibold text-primary">
+              {(user?.name?.[0] || "U").toUpperCase()}
+            </div>
+            <div className="flex flex-col text-left">
+              <span className="text-[10px] uppercase tracking-widest text-on-surface-variant leading-none">Signed In</span>
+              <span className="text-sm font-semibold text-primary leading-tight">{user?.name || "Guest"}</span>
             </div>
           </div>
 
-          <button className="nav__btn" onClick={onLogout}>
+          <button 
+            onClick={onLogout}
+            className="text-sm font-semibold uppercase tracking-widest text-on-surface-variant hover:text-primary transition-colors sm:ml-2"
+          >
             Logout
           </button>
         </div>
+
       </div>
     </header>
   );

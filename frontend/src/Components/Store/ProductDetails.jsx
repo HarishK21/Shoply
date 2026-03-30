@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import ConfirmDialog from "../UI/ConfirmDialog";
 import Notice from "../UI/Notice";
 import Navbar from "./Navbar";
+import Footer from "../UI/Footer";
 import { apiFetch, clearAuthSession, getAuthToken, getStoredUser } from "../../lib/auth";
 import { addItemToCart } from "../../lib/cart";
-import "./Home.css";
 
 const emptyEditState = {
   name: "",
@@ -17,7 +17,7 @@ const emptyEditState = {
   imageURL: ""
 };
 
-const ProductDetails = () => {
+export default function ProductDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -35,8 +35,6 @@ const ProductDetails = () => {
   const [showEditForm, setShowEditForm] = useState(false);
   const [editData, setEditData] = useState(emptyEditState);
 
-  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
-
   const [user] = useState(() => getStoredUser());
   const [token] = useState(() => getAuthToken());
 
@@ -45,11 +43,6 @@ const ProductDetails = () => {
       navigate("/login");
     }
   }, [token, user, navigate]);
-
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("theme", theme);
-  }, [theme]);
 
   const loadProduct = useCallback(async () => {
     setIsLoading(true);
@@ -83,16 +76,10 @@ const ProductDetails = () => {
     navigate("/login");
   };
 
-  const toggleTheme = () => {
-    setTheme((current) => (current === "dark" ? "light" : "dark"));
-  };
-
   const canManageProduct = Boolean(product && (product.userId === user?.id || user?.role === "admin"));
 
   const addToCart = async () => {
-    if (!product) {
-      return;
-    }
+    if (!product) return;
 
     setNotice({ type: "info", message: "" });
     setIsAddingToCart(true);
@@ -106,27 +93,19 @@ const ProductDetails = () => {
     }
   };
 
-  const requestDeleteProduct = () => {
-    setShowDeleteConfirm(true);
-  };
+  const requestDeleteProduct = () => setShowDeleteConfirm(true);
 
   const confirmDeleteProduct = async () => {
-    if (!product) {
-      return;
-    }
+    if (!product) return;
 
     setIsDeleting(true);
     setNotice({ type: "info", message: "" });
     try {
-      const response = await fetch(`/api/items/${product.id}`, {
-        method: "DELETE"
-      });
-
+      const response = await fetch(`/api/items/${product.id}`, { method: "DELETE" });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         throw new Error(payload.message || "Failed to delete product.");
       }
-
       window.dispatchEvent(new Event("cartUpdated"));
       navigate("/home", { replace: true });
     } catch (error) {
@@ -139,10 +118,7 @@ const ProductDetails = () => {
   };
 
   const openEditForm = () => {
-    if (!product) {
-      return;
-    }
-
+    if (!product) return;
     setNotice({ type: "info", message: "" });
     setEditData({
       name: product.name || "",
@@ -157,9 +133,7 @@ const ProductDetails = () => {
   };
 
   const closeEditForm = () => {
-    if (!isSavingEdit) {
-      setShowEditForm(false);
-    }
+    if (!isSavingEdit) setShowEditForm(false);
   };
 
   const handleEditChange = (event) => {
@@ -171,16 +145,9 @@ const ProductDetails = () => {
     event.preventDefault();
     setNotice({ type: "info", message: "" });
 
-    if (!editData.name.trim()) {
-      setNotice({ type: "warning", message: "Item name is required." });
-      return;
-    }
-
+    if (!editData.name.trim()) return setNotice({ type: "warning", message: "Item name is required." });
     const parsedPrice = Number(editData.price);
-    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
-      setNotice({ type: "warning", message: "Price must be a number greater than 0." });
-      return;
-    }
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) return setNotice({ type: "warning", message: "Price must be a number greater than 0." });
 
     setIsSavingEdit(true);
     try {
@@ -199,9 +166,7 @@ const ProductDetails = () => {
       });
 
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.message || "Failed to update item.");
-      }
+      if (!response.ok) throw new Error(payload.message || "Failed to update item.");
 
       setProduct(payload);
       window.dispatchEvent(new Event("cartUpdated"));
@@ -215,142 +180,167 @@ const ProductDetails = () => {
     }
   };
 
+  const rawImage = typeof product?.imageURL === "string" ? product.imageURL.trim() : "";
+  const imageSrc = product?.hasImage && rawImage
+    ? rawImage.startsWith("http") ? rawImage : `${window.location.origin}${rawImage}`
+    : "";
+
   return (
-    <div className="home">
+    <div className="min-h-screen flex flex-col">
       <Navbar user={user} onLogout={onLogout} onSearchChange={setSearch} searchValue={search} />
 
-      <main className="home__wrap">
+      <main className="flex-1 max-w-[1440px] mx-auto w-full px-6 pt-12 pb-24">
         {notice.message && (
-          <div className="home__notice">
-            <Notice
-              type={notice.type}
-              message={notice.message}
-              onDismiss={() => setNotice({ type: "info", message: "" })}
-            />
+          <div className="mb-8">
+            <Notice type={notice.type} message={notice.message} onDismiss={() => setNotice({ type: "info", message: "" })} />
           </div>
         )}
 
         {isLoading ? (
-          <div className="home__emptyState">Loading product details...</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 animate-pulse mt-12">
+            <div className="bg-surface-container-highest w-full max-w-[520px] h-[360px] md:h-[520px] lg:h-[calc(100vh-12rem)] max-h-[680px] mx-auto"></div>
+            <div>
+              <div className="h-12 bg-surface-container-highest w-3/4 mb-4"></div>
+              <div className="h-6 bg-surface-container-highest w-1/4 mb-12"></div>
+              <div className="h-24 bg-surface-container-highest w-full mb-8"></div>
+              <div className="h-12 bg-surface-container-highest w-full mb-4"></div>
+            </div>
+          </div>
         ) : loadError ? (
-          <Notice type="error" message={loadError} actionLabel="Back to Home" onAction={() => navigate("/home")} />
+          <div className="mt-12 text-center py-24 border border-outline-variant/30 flex justify-center flex-col items-center">
+            <h2 className="font-display text-3xl text-primary mb-4">{loadError}</h2>
+            <button onClick={() => navigate("/home")} className="tertiary-btn mt-6">Return to Collection</button>
+          </div>
         ) : product ? (
           <>
-            <div className="home__titleRow">
-              <div>
-                <h1 className="home__title">{product.name}</h1>
-                <p className="home__subtitle">Product details and available actions.</p>
-              </div>
+            {/* Breadcrumb */}
+            <nav className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-on-surface-variant mb-12">
+              <Link to="/home" className="hover:text-primary transition-colors">Shop</Link>
+              <span>/</span>
+              <span className="text-primary truncate max-w-xs">{product.name}</span>
+            </nav>
 
-              <div className="home__controls">
-                <button type="button" className="themeToggle" onClick={toggleTheme} aria-label="Toggle light and dark mode">
-                  <span className="themeToggle__icon">{theme === "dark" ? "Dark" : "Light"}</span>
-                  <span className={`themeToggle__track ${theme === "light" ? "isOn" : ""}`}>
-                    <span className="themeToggle__thumb" />
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            <div className="card productDetailsCard">
-              <div className="productDetailsCard__media">
-                {product.hasImage && typeof product.imageURL === "string" && product.imageURL.trim() ? (
-                  <img
-                    src={product.imageURL.trim().startsWith("http") ? product.imageURL.trim() : `${window.location.origin}${product.imageURL.trim()}`}
-                    alt={product.name}
-                    onError={(event) => {
-                      event.currentTarget.style.display = "none";
-                    }}
-                  />
-                ) : (
-                  <div className="productDetailsCard__placeholder">No image available</div>
-                )}
-              </div>
-
-              <div className="productDetailsCard__info">
-                <div>
-                  <h2 className="productDetailsCard__name">{product.name}</h2>
-                  <div className="badge productDetailsCard__id">
-                    Item ID: {product.id}
-                  </div>
-                </div>
-
-                <div className="productDetailsCard__section">
-                  <h3 className="productDetailsCard__sectionTitle">About This Item</h3>
-                  <p>{product.description || "No description provided."}</p>
-                </div>
-
-                {product.postedBy && (
-                  <div className="productDetailsCard__seller">Seller: {product.postedBy}</div>
-                )}
-
-                <div className="productDetailsCard__price">${Number(product.price).toFixed(2)}</div>
-
-                <div className="productDetailsCard__actions">
-                  <button type="button" className="addToCartBtn" onClick={addToCart} disabled={isAddingToCart}>
-                    {isAddingToCart ? "Adding..." : "Add to Cart"}
-                  </button>
-
-                  {canManageProduct && (
-                    <button type="button" className="addToCartBtn addToCartBtn--warning" onClick={openEditForm}>
-                      Edit Product
-                    </button>
-                  )}
-
-                  <button type="button" className="addToCartBtn backBtn" onClick={() => navigate("/home")}>
-                    Back to Home
-                  </button>
-
-                  {canManageProduct && (
-                    <button
-                      type="button"
-                      className="addToCartBtn addToCartBtn--danger"
-                      onClick={requestDeleteProduct}
-                      disabled={isDeleting}
-                    >
-                      Delete Product
-                    </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-16 lg:gap-24">
+              {/* Left Column: Image Area */}
+              <div className="bg-surface relative lg:sticky lg:top-28 h-fit flex justify-center">
+                <div className="w-full max-w-[520px] h-[360px] md:h-[520px] lg:h-[calc(100vh-12rem)] max-h-[680px] overflow-hidden bg-surface-container-highest">
+                  {imageSrc ? (
+                    <img
+                      src={imageSrc}
+                      alt={product.name}
+                      className="w-full h-full object-contain"
+                      onError={(e) => { e.currentTarget.style.display = "none"; }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-surface-container-high flex flex-col items-center justify-center font-display text-outline text-2xl">
+                       Shoply <span className="font-body text-xs uppercase tracking-widest mt-2">Item #{product.id}</span>
+                    </div>
                   )}
                 </div>
               </div>
+
+              {/* Right Column: Product Details */}
+              <div className="pt-4 lg:pt-12 md:pb-[30vh]">
+                <h1 className="font-display text-4xl lg:text-5xl text-primary mb-4 leading-tight">{product.name}</h1>
+                <p className="font-body text-2xl font-semibold text-primary mb-10">${Number(product.price).toFixed(2)}</p>
+
+                <div className="space-y-6 mb-12 text-on-surface-variant font-medium text-[15px]">
+                  <p className="leading-relaxed">
+                    {product.description || "An exercise in architectural tailoring. This signature piece features sharp lines that command presence while maintaining effortless grace. Crafted from responsibly sourced materials."}
+                  </p>
+                  
+                  <ul className="space-y-3 pt-6">
+                    {product.postedBy && <li className="flex items-center"><span className="w-2 h-2 rounded-full bg-secondary/60 mr-4"></span> Seller: {product.postedBy}</li>}
+                    <li className="flex items-center"><span className="w-2 h-2 rounded-full bg-secondary/60 mr-4"></span> Item Reference: {product.id}</li>
+                    <li className="flex items-center"><span className="w-2 h-2 rounded-full bg-secondary/60 mr-4"></span> Complimentary express shipping</li>
+                    <li className="flex items-center"><span className="w-2 h-2 rounded-full bg-secondary/60 mr-4"></span> 14-day return window</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-4 border-y border-outline-variant/30 py-8 mb-12">
+                  <button 
+                    onClick={addToCart} 
+                    disabled={isAddingToCart}
+                    className="w-full arcade-btn py-4 text-base tracking-widest uppercase font-semibold text-on-secondary shadow-ambient"
+                  >
+                    {isAddingToCart ? "Adding to Bag..." : "Add to Bag"}
+                  </button>
+
+                  {canManageProduct && (
+                    <div className="grid grid-cols-2 gap-4 mt-6">
+                      <button 
+                        onClick={openEditForm}
+                        className="secondary-btn w-full uppercase tracking-widest text-xs font-semibold"
+                      >
+                        Edit Record
+                      </button>
+                      <button 
+                        onClick={requestDeleteProduct}
+                        disabled={isDeleting}
+                        className="w-full border border-red-200 text-red-700 bg-transparent hover:bg-red-50 rounded px-4 py-3 uppercase tracking-widest text-xs font-semibold transition-colors"
+                      >
+                        Delete Record
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+              </div>
             </div>
 
+            {/* Edit Modal Overlay */}
             {showEditForm && (
-              <div className="editModalOverlay" onClick={(event) => event.target === event.currentTarget && closeEditForm()}>
-                <div className="editModalCard">
-                  <h3>Edit Product</h3>
-                  <p className="editModalCard__subtitle">Update fields and save changes.</p>
-                  <form onSubmit={submitEdit}>
-                    <div className="editModalCard__grid">
-                      <input name="name" placeholder="Name" value={editData.name} onChange={handleEditChange} required />
-                      <input name="postedBy" placeholder="Seller" value={editData.postedBy} onChange={handleEditChange} />
-                      <input name="price" placeholder="Price" type="number" step="0.01" value={editData.price} onChange={handleEditChange} required />
-                      <input name="imageURL" placeholder="Image URL" value={editData.imageURL} onChange={handleEditChange} />
-                    </div>
-                    <div className="editModalCard__field">
-                      <textarea
-                        name="description"
-                        placeholder="Description"
-                        value={editData.description}
-                        onChange={handleEditChange}
-                        rows={4}
-                      />
-                    </div>
-                    <div className="editModalCard__check">
-                      <label>
-                        <input type="checkbox" name="hasImage" checked={editData.hasImage} onChange={handleEditChange} />
-                        Has Image
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto" onClick={(e) => e.target === e.currentTarget && closeEditForm()}>
+                <div className="bg-surface-container-lowest w-full max-w-2xl shadow-lift my-8 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="px-8 py-6 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
+                    <h3 className="font-display text-2xl text-primary">Edit Record</h3>
+                    <button onClick={closeEditForm} className="text-on-surface-variant hover:text-primary transition-colors text-4xl font-light leading-none">&times;</button>
+                  </div>
+                  
+                  <div className="p-8">
+                    <form onSubmit={submitEdit} className="space-y-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                          <label className="label-md block mb-2">Title *</label>
+                          <input name="name" className="ghost-input w-full font-medium" value={editData.name} onChange={handleEditChange} required />
+                        </div>
+                        <div>
+                          <label className="label-md block mb-2">Price *</label>
+                          <input name="price" className="ghost-input w-full font-medium" type="number" step="0.01" value={editData.price} onChange={handleEditChange} required />
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                          <label className="label-md block mb-2">Seller</label>
+                          <input name="postedBy" className="ghost-input w-full" value={editData.postedBy} onChange={handleEditChange} />
+                        </div>
+                        <div>
+                          <label className="label-md block mb-2">Image Reference URL</label>
+                          <input name="imageURL" className="ghost-input w-full" value={editData.imageURL} onChange={handleEditChange} />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="label-md block mb-2">Description</label>
+                        <textarea name="description" className="ghost-input w-full resize-y" value={editData.description} onChange={handleEditChange} rows={4} />
+                      </div>
+                      
+                      <label className="flex items-center gap-3 cursor-pointer mt-4">
+                        <input type="checkbox" name="hasImage" className="w-5 h-5 accent-secondary border-outline-variant" checked={editData.hasImage} onChange={handleEditChange} />
+                        <span className="font-medium text-primary">Media attached to this record</span>
                       </label>
-                    </div>
-                    <div className="editModalCard__actions">
-                      <button type="button" onClick={closeEditForm} disabled={isSavingEdit}>
-                        Cancel
-                      </button>
-                      <button type="submit" disabled={isSavingEdit}>
-                        {isSavingEdit ? "Saving..." : "Save Changes"}
-                      </button>
-                    </div>
-                  </form>
+                      
+                      <div className="pt-8 mt-4 border-t border-outline-variant/30 flex justify-end gap-6 items-center">
+                        <button type="button" className="tertiary-btn border-outline-variant text-on-surface-variant py-2 hover:text-primary transition-colors" onClick={closeEditForm} disabled={isSavingEdit}>
+                          Cancel
+                        </button>
+                        <button type="submit" className="arcade-btn px-8" disabled={isSavingEdit}>
+                          {isSavingEdit ? "Saving..." : "Save Record"}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
                 </div>
               </div>
             )}
@@ -360,24 +350,17 @@ const ProductDetails = () => {
 
       <ConfirmDialog
         isOpen={showDeleteConfirm}
-        title="Delete this product?"
-        message="This action permanently removes the product and cannot be undone."
-        confirmLabel="Delete"
-        cancelLabel="Keep Product"
+        title="Delete this record?"
+        message="This action permanently removes the product from the catalog and cannot be undone."
+        confirmLabel="Erase permanently"
+        cancelLabel="Keep record"
         danger
         busy={isDeleting}
         onConfirm={confirmDeleteProduct}
         onCancel={() => !isDeleting && setShowDeleteConfirm(false)}
       />
 
-      <footer className="footer">
-        <div className="footer__inner">
-          <div className="footer__brand">SHOPLY</div>
-          <div className="footer__muted">Demo e-commerce platform - CPS630</div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
-};
-
-export default ProductDetails;
+}

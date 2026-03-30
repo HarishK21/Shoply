@@ -2,18 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Notice from "../UI/Notice";
 import Navbar from "../Store/Navbar";
+import Footer from "../UI/Footer";
 import { apiFetch, clearAuthSession, getAuthToken, getStoredUser } from "../../lib/auth";
-import "./Orders.css";
 
 export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("newest");
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-
-  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
 
   const navigate = useNavigate();
   const [user] = useState(() => getStoredUser());
@@ -26,9 +24,7 @@ export default function Orders() {
   }, [navigate, token, user]);
 
   const loadOrders = useCallback(async () => {
-    if (!user?.id) {
-      return;
-    }
+    if (!user?.id) return;
 
     setIsLoading(true);
     setLoadError("");
@@ -50,10 +46,9 @@ export default function Orders() {
   }, [user?.id]);
 
   useEffect(() => {
-    if (!user || !token) {
-      return;
+    if (user && token) {
+      loadOrders();
     }
-    loadOrders();
   }, [token, user, loadOrders]);
 
   const filtered = useMemo(() => {
@@ -66,8 +61,7 @@ export default function Orders() {
         const firstNameMatch = String(order.firstName ?? "").toLowerCase().includes(q);
         const lastNameMatch = String(order.lastName ?? "").toLowerCase().includes(q);
         const emailMatch = String(order.email ?? "").toLowerCase().includes(q);
-        const addressMatch = String(order.address ?? "").toLowerCase().includes(q);
-        return idMatch || firstNameMatch || lastNameMatch || emailMatch || addressMatch;
+        return idMatch || firstNameMatch || lastNameMatch || emailMatch;
       });
     }
 
@@ -84,23 +78,10 @@ export default function Orders() {
     return result;
   }, [orders, search, sortBy]);
 
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("theme", theme);
-  }, [theme]);
-
   const onLogout = async () => {
-    try {
-      await apiFetch("/api/logout", { method: "POST" });
-    } catch {
-      // Local auth clear still happens if network logout fails.
-    }
+    try { await apiFetch("/api/logout", { method: "POST" }); } catch { /* ignore */ }
     clearAuthSession();
     navigate("/login");
-  };
-
-  const toggleTheme = () => {
-    setTheme((current) => (current === "dark" ? "light" : "dark"));
   };
 
   const clearFilters = () => {
@@ -109,45 +90,40 @@ export default function Orders() {
   };
 
   return (
-    <div className="home">
+    <div className="min-h-screen flex flex-col">
       <Navbar user={user} onLogout={onLogout} onSearchChange={setSearch} searchValue={search} />
 
-      <main className="home__wrap">
-        <div className="home__titleRow">
+      <main className="flex-1 max-w-[1440px] mx-auto w-full px-6 pt-12 pb-24">
+        
+        <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-outline-variant/30 pb-6 mb-12">
           <div>
-            <h1 className="home__title">My Orders</h1>
-            <p className="home__subtitle">Track your purchases and review order details.</p>
+            <h1 className="font-display text-4xl text-primary mb-2">Order History</h1>
+            <p className="font-body text-on-surface-variant font-medium text-lg">Track your purchases and review order details.</p>
           </div>
-
-          <div className="home__controls">
-            <div className="badge" aria-label={`${filtered.length} visible orders`}>
-              {filtered.length} orders
+          
+          <div className="flex flex-wrap items-center gap-6 mt-6 md:mt-0">
+            <div className="text-sm font-semibold uppercase tracking-widest text-on-surface-variant border-x border-outline-variant/30 px-6 py-2">
+              {filtered.length} Orders
             </div>
-
             <button
-              type="button"
-              className="home__filterToggle"
-              aria-expanded={showFilters}
-              aria-controls="orders-filter-bar"
-              onClick={() => setShowFilters((current) => !current)}
+              onClick={() => setShowFilters(!showFilters)}
+              className="text-sm font-semibold uppercase tracking-widest text-primary hover:text-secondary transition-colors"
             >
-              {showFilters ? "Hide Filters" : "Show Filters"}
-            </button>
-
-            <button type="button" className="themeToggle" onClick={toggleTheme} aria-label="Toggle light and dark mode">
-              <span className="themeToggle__icon">{theme === "dark" ? "Dark" : "Light"}</span>
-              <span className={`themeToggle__track ${theme === "light" ? "isOn" : ""}`}>
-                <span className="themeToggle__thumb" />
-              </span>
+              {showFilters ? "HIDE FILTERS" : "FILTER & SORT"}
             </button>
           </div>
         </div>
 
-        {showFilters && (
-          <section id="orders-filter-bar" className="ordersFilterBar" aria-label="Sort and filter orders">
-            <div className="ordersFilterBar__group">
-              <label htmlFor="sort-select">Sort</label>
-              <select id="sort-select" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+        {/* Filter Bar */}
+        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${showFilters ? 'max-h-[500px] mb-12 opacity-100' : 'max-h-0 mb-0 opacity-0'}`}>
+          <div className="bg-surface-container-low p-8 flex flex-wrap gap-12 items-end border-l border-primary">
+            <div>
+              <label className="block text-sm font-semibold uppercase tracking-widest text-primary mb-4">Sort By</label>
+              <select 
+                value={sortBy} 
+                onChange={(e) => setSortBy(e.target.value)}
+                className="ghost-input pr-8 appearance-none bg-transparent cursor-pointer"
+              >
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
                 <option value="price-high">Total: High to Low</option>
@@ -155,100 +131,103 @@ export default function Orders() {
               </select>
             </div>
 
-            <button type="button" className="ordersFilterBar__clear" onClick={clearFilters}>
-              Clear Filters
-            </button>
-          </section>
-        )}
+            <div className="ml-auto">
+              <button onClick={clearFilters} className="tertiary-btn">
+                Clear Filters
+              </button>
+            </div>
+          </div>
+        </div>
 
         {isLoading ? (
-          <div className="home__emptyState">Loading orders...</div>
+          <div className="space-y-8 animate-pulse">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-48 bg-surface-container-highest w-full mb-4"></div>
+            ))}
+          </div>
         ) : loadError ? (
           <Notice type="error" message={loadError} actionLabel="Retry" onAction={loadOrders} />
         ) : filtered.length === 0 ? (
-          <div className="home__emptyState">
-            {search.trim() !== "" ? "No orders match your search." : "You have no orders yet."}
+          <div className="py-24 text-center border-y border-outline-variant/30 flex flex-col items-center justify-center">
+            <h3 className="font-display text-3xl text-primary mb-4">No records found</h3>
+            <p className="text-on-surface-variant font-medium">
+              {search.trim() !== "" ? "No orders match your search criteria." : "You have no orders yet in your history."}
+            </p>
           </div>
         ) : (
-          <div className="ordersList">
+          <div className="space-y-12">
             {filtered.map((order) => (
-              <article key={order.id} className="orderCard">
-                <header className="orderCard__header">
+              <article key={order.id} className="bg-surface-container-lowest outline outline-1 outline-outline-variant/30 p-8 shadow-ambient group hover:shadow-lift transition-shadow">
+                <header className="flex flex-col md:flex-row md:items-center justify-between border-b border-outline-variant/30 pb-6 mb-6 gap-6">
                   <div>
-                    <h3>Order #{order.id}</h3>
-                    <p>
-                      {new Date(order.createdAt).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit"
-                      })}
+                    <h3 className="font-display text-2xl text-primary mb-2">Order #{order.id}</h3>
+                    <p className="text-on-surface-variant text-sm font-semibold uppercase tracking-widest">
+                      {new Date(order.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
                     </p>
                   </div>
-                  <div className="orderCard__total">
-                    <span>Total</span>
-                    <strong>${Number(order.totalPrice).toFixed(2)}</strong>
+                  <div className="text-left md:text-right">
+                    <span className="text-sm font-semibold uppercase tracking-widest text-on-surface-variant block mb-1">Total Amount</span>
+                    <strong className="font-display text-2xl text-primary">${Number(order.totalPrice).toFixed(2)}</strong>
                   </div>
                 </header>
 
-                <section className="orderCard__grid">
-                  <div>
-                    <h4>Customer</h4>
-                    <p>{order.firstName} {order.lastName}</p>
-                    <p>{order.email}</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-12 font-medium">
+                  {/* Left: Customer Info & Payment */}
+                  <div className="space-y-8">
+                    <section>
+                      <h4 className="text-sm font-semibold uppercase tracking-widest text-primary mb-4 border-b border-outline-variant/30 pb-2">Client Details</h4>
+                      <div className="text-on-surface-variant space-y-1 text-sm">
+                        <p>{order.firstName} {order.lastName}</p>
+                        <p>{order.email}</p>
+                      </div>
+                    </section>
+                    
+                    <section>
+                      <h4 className="text-sm font-semibold uppercase tracking-widest text-primary mb-4 border-b border-outline-variant/30 pb-2">Delivery Details</h4>
+                      <div className="text-on-surface-variant space-y-1 text-sm">
+                        <p>{order.address}</p>
+                        <p>{order.city}, {order.postalCode}</p>
+                      </div>
+                    </section>
+                    
+                    <section>
+                      <h4 className="text-sm font-semibold uppercase tracking-widest text-primary mb-4 border-b border-outline-variant/30 pb-2">Payment Method</h4>
+                      <div className="text-on-surface-variant space-y-1 text-sm">
+                        <p>{order.cardName || "Card"}</p>
+                        <p>Ending in {order.cardNumber ? String(order.cardNumber).slice(-4) : "----"}</p>
+                      </div>
+                    </section>
                   </div>
-                  <div>
-                    <h4>Delivery Address</h4>
-                    <p>{order.address}</p>
-                    <p>{order.city}, {order.postalCode}</p>
-                  </div>
-                </section>
-
-                <section>
-                  <h4 className="orderCard__sectionLabel">Items Ordered</h4>
-                  <div className="orderCard__items">
-                    {Array.isArray(order.items) && order.items.length > 0 ? (
-                      order.items.map((item, index) => (
-                        <div key={`${item.id}-${index}`} className="orderCard__item">
-                          <div>
-                            <p>{item.name}</p>
-                            <small>Qty: {item.quantity || 1}</small>
-                          </div>
-                          <p>${(Number(item.price) * (item.quantity || 1)).toFixed(2)}</p>
+                  
+                  {/* Right: Items List */}
+                  <section className="md:col-span-2">
+                    <h4 className="text-sm font-semibold uppercase tracking-widest text-primary mb-4 border-b border-outline-variant/30 pb-2">Purchased Items</h4>
+                    <div className="bg-surface p-6">
+                      {Array.isArray(order.items) && order.items.length > 0 ? (
+                        <div className="space-y-4">
+                          {order.items.map((item, index) => (
+                            <div key={`${item.id}-${index}`} className="flex justify-between items-center gap-4 text-sm font-medium border-b border-outline-variant/20 last:border-0 pb-4 last:pb-0">
+                              <div className="text-on-surface-variant">
+                                <span className="font-semibold text-primary mr-3">{item.quantity || 1}x</span> 
+                                {item.name}
+                              </div>
+                              <span className="text-primary whitespace-nowrap">${(Number(item.price) * (item.quantity || 1)).toFixed(2)}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))
-                    ) : (
-                      <p className="orderCard__empty">No items listed.</p>
-                    )}
-                  </div>
-                </section>
-
-                <footer className="orderCard__payment">
-                  <h4>Payment Method</h4>
-                  <div>
-                    <p>{order.cardName || "Card"}</p>
-                    <p>Card ending in {order.cardNumber ? String(order.cardNumber).slice(-4) : "----"}</p>
-                  </div>
-                </footer>
+                      ) : (
+                        <p className="text-on-surface-variant text-sm py-4">No items listed for this order.</p>
+                      )}
+                    </div>
+                  </section>
+                </div>
               </article>
             ))}
           </div>
         )}
       </main>
 
-      <footer className="footer">
-        <div className="footer__inner">
-          <div className="footer__brand">SHOPLY</div>
-          <div className="footer__muted">Demo e-commerce platform - CPS630</div>
-
-          <div className="footer__links">
-            <a className="footer__link">Hotline</a>
-            <a className="footer__link">Email</a>
-            <a className="footer__link">Feedback</a>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

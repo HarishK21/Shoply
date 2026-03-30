@@ -1,167 +1,146 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Notice from "../UI/Notice";
-import "./Auth.css";
+import { apiFetch, storeAuthSession } from "../../lib/auth";
 
-function Register() {
+export default function Register() {
   const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  
+  const [isLoading, setIsLoading] = useState(false);
   const [notice, setNotice] = useState({ type: "info", message: "" });
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: ""
-  });
 
-  const passwordsMatch = useMemo(
-    () => formData.confirmPassword === "" || formData.password === formData.confirmPassword,
-    [formData.confirmPassword, formData.password]
-  );
-
-  const handleChange = (event) => {
-    setNotice({ type: "info", message: "" });
-    setFormData((prev) => ({
-      ...prev,
-      [event.target.name]: event.target.value
-    }));
-  };
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleRegister = async (e) => {
+    e.preventDefault();
     setNotice({ type: "info", message: "" });
 
-    if (!passwordsMatch) {
-      setNotice({
-        type: "warning",
-        message: "Passwords do not match. Please confirm your password again."
-      });
-      return;
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password.trim()) {
+      return setNotice({ type: "warning", message: "Please fill in all fields." });
     }
 
-    if (formData.password.length < 6) {
-      setNotice({
-        type: "warning",
-        message: "Use at least 6 characters for your password."
-      });
-      return;
+    if (password.length < 6) {
+      return setNotice({ type: "warning", message: "Password must be at least 6 characters." });
     }
 
-    setIsSubmitting(true);
+    setIsLoading(true);
     try {
-      const response = await fetch("/api/register", {
+      const response = await apiFetch("/api/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: formData.name.trim(),
-          email: formData.email.trim(),
-          password: formData.password
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim(),
+          password: password.trim()
         })
       });
 
-      const result = await response.json().catch(() => ({}));
-
+      const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setNotice({ type: "error", message: result.message || "Registration failed. Please try again." });
-        return;
+        throw new Error(payload.message || "Registration failed.");
       }
 
-      setNotice({ type: "success", message: "Account created. Redirecting to login..." });
-      setTimeout(() => navigate("/login"), 700);
+      storeAuthSession({ token: payload.token, user: payload.user });
+      navigate("/home");
+
     } catch (error) {
-      console.error("Register error:", error);
-      setNotice({
-        type: "error",
-        message: "Unable to reach the server. Please check your connection and try again."
-      });
+      setNotice({ type: "error", message: error.message });
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-card" aria-busy={isSubmitting}>
-        <h2>Create Account</h2>
-        <p className="auth-subtitle">Sign up to save your cart and manage orders.</p>
-
-        <Notice
-          type={notice.type}
-          message={notice.message}
-          onDismiss={notice.message ? () => setNotice({ type: "info", message: "" }) : undefined}
-          compact
-        />
-
-        <form onSubmit={handleSubmit} noValidate>
-          <div className="form-group">
-            <label htmlFor="register-name">Full Name</label>
-            <input
-              id="register-name"
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="Enter your full name"
-              autoComplete="name"
-              required
-            />
+    <div className="min-h-screen bg-surface flex flex-col md:flex-row">
+      <div className="hidden md:flex md:w-1/2 bg-surface-container-highest relative overflow-hidden items-center justify-center order-last">
+        <div className="absolute inset-0 bg-primary/5"></div>
+        <div className="z-10 text-center p-12">
+           <h1 className="font-display text-5xl lg:text-7xl text-primary mb-6">Shoply</h1>
+           <p className="font-body text-xl text-on-surface-variant max-w-md mx-auto">
+             Join Shoply and start building your collection.
+           </p>
+        </div>
+      </div>
+      
+      <div className="flex-1 flex flex-col justify-center px-6 py-20 md:px-16 lg:px-32 relative">
+        <div className="max-w-md w-full mx-auto">
+          <div className="mb-12">
+            <h2 className="font-display text-4xl text-primary mb-2">Create Account</h2>
+            <p className="font-body text-on-surface-variant font-medium">Join us to manage your orders and collection.</p>
           </div>
+          
+          {notice.message && (
+            <div className="mb-8">
+              <Notice type={notice.type} message={notice.message} onDismiss={() => setNotice({ type: "info", message: ""})} />
+            </div>
+          )}
 
-          <div className="form-group">
-            <label htmlFor="register-email">Email</label>
-            <input
-              id="register-email"
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="you@example.com"
-              autoComplete="email"
-              required
-            />
-          </div>
+          <form onSubmit={handleRegister} className="space-y-8">
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <label className="label-md block mb-2">First Name</label>
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="ghost-input w-full"
+                  required
+                />
+              </div>
+              <div>
+                <label className="label-md block mb-2">Last Name</label>
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className="ghost-input w-full"
+                  required
+                />
+              </div>
+            </div>
 
-          <div className="form-group">
-            <label htmlFor="register-password">Password</label>
-            <input
-              id="register-password"
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="At least 6 characters"
-              autoComplete="new-password"
-              required
-            />
-            <p className="auth-helpText">Use at least 6 characters.</p>
-          </div>
+            <div>
+              <label className="label-md block mb-2">Email Address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="ghost-input w-full"
+                required
+              />
+            </div>
 
-          <div className="form-group">
-            <label htmlFor="register-confirm">Confirm Password</label>
-            <input
-              id="register-confirm"
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              placeholder="Re-enter your password"
-              autoComplete="new-password"
-              required
-            />
-            {!passwordsMatch && <p className="auth-helpText auth-helpText--error">Passwords do not match.</p>}
-          </div>
+            <div>
+              <label className="label-md block mb-2">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="ghost-input w-full"
+                required
+                minLength={6}
+              />
+            </div>
 
-          <button type="submit" className="auth-button arcade-btn" disabled={isSubmitting}>
-            {isSubmitting ? "Creating account..." : "Create Account"}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full arcade-btn py-4 text-base tracking-widest uppercase font-semibold text-on-secondary shadow-ambient mt-8 disabled:opacity-50"
+            >
+              {isLoading ? "Creating Account..." : "Create Account"}
+            </button>
+          </form>
 
-        <p className="auth-footer">
-          Already have an account? <Link to="/login">Login</Link>
-        </p>
+          <p className="mt-12 text-center text-sm text-on-surface-variant font-medium">
+            Already have an account?{" "}
+            <Link to="/login" className="text-primary hover:text-secondary uppercase tracking-widest font-semibold border-b border-primary hover:border-secondary transition-colors pb-0.5 ml-1">
+              Sign In
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
 }
-
-export default Register;

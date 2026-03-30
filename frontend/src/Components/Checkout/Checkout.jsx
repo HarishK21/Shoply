@@ -2,598 +2,410 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Notice from "../UI/Notice";
 import Navbar from "../Store/Navbar";
+import Footer from "../UI/Footer";
 import { apiFetch, clearAuthSession, getAuthToken, getStoredUser } from "../../lib/auth";
-import { clearCart, fetchCart, removeItemFromCart, updateCartItemQuantity } from "../../lib/cart";
-import "./Checkout.css";
+import { fetchCart, removeItemFromCart, updateCartItemQuantity } from "../../lib/cart";
 
-const TAX_RATE = 0.13;
-const FORM_FIELDS = [
-  "firstName",
-  "lastName",
-  "email",
-  "address",
-  "city",
-  "postalCode",
-  "cardName",
-  "cardNumber",
-  "cardExpiry",
-  "cardCVV"
-];
-const DELIVERY_FIELDS = ["firstName", "lastName", "email", "address", "city", "postalCode"];
-const PAYMENT_FIELDS = ["cardName", "cardNumber", "cardExpiry", "cardCVV"];
+const SHIPPING_COST = 15;
+const TAX_RATE = 0.08;
 
-const initialFormData = {
+const defaultForm = {
   firstName: "",
   lastName: "",
   email: "",
   address: "",
   city: "",
   postalCode: "",
-  cardName: "",
   cardNumber: "",
+  cardName: "",
   cardExpiry: "",
-  cardCVV: ""
-};
-
-const readDraftFromStorage = (userId) => {
-  if (!userId) {
-    return null;
-  }
-
-  try {
-    const raw = localStorage.getItem(`checkout:draft:${userId}`);
-    if (!raw) {
-      return null;
-    }
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") {
-      return null;
-    }
-    return { ...initialFormData, ...parsed };
-  } catch {
-    return null;
-  }
-};
-
-const clearDraftFromStorage = (userId) => {
-  if (!userId) {
-    return;
-  }
-  try {
-    localStorage.removeItem(`checkout:draft:${userId}`);
-  } catch {
-    // Ignore localStorage failures.
-  }
+  cardCVC: ""
 };
 
 export default function Checkout() {
-  const [search, setSearch] = useState("");
+  const navigate = useNavigate();
   const [user] = useState(() => getStoredUser());
   const [token] = useState(() => getAuthToken());
-  const [formData, setFormData] = useState(() => readDraftFromStorage(getStoredUser()?.id) || initialFormData);
-  const [orderConfirmed, setOrderConfirmed] = useState(false);
-  const [confirmedOrderDetails, setConfirmedOrderDetails] = useState(null);
-  const [cart, setCart] = useState([]);
-  const [isLoadingCart, setIsLoadingCart] = useState(true);
-  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const [cartItems, setCartItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [notice, setNotice] = useState({ type: "info", message: "" });
-  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
-  const [draftState, setDraftState] = useState("idle");
-
-  const navigate = useNavigate();
-
-  const cartCount = useMemo(
-    () => cart.reduce((total, item) => total + (item.quantity || 1), 0),
-    [cart]
-  );
-
-  const subtotal = useMemo(
-    () => cart.reduce((sum, item) => sum + Number(item.price) * (item.quantity || 1), 0),
-    [cart]
-  );
-  const tax = subtotal * TAX_RATE;
-  const total = subtotal + tax;
-
-  const completionCount = useMemo(
-    () => FORM_FIELDS.reduce((count, field) => count + (String(formData[field]).trim() ? 1 : 0), 0),
-    [formData]
-  );
-
-  const completionPercent = useMemo(
-    () => Math.round((completionCount / FORM_FIELDS.length) * 100),
-    [completionCount]
-  );
-
-  const hasDraftContent = useMemo(
-    () => FORM_FIELDS.some((field) => String(formData[field]).trim() !== ""),
-    [formData]
-  );
-
-  const deliveryComplete = useMemo(
-    () => DELIVERY_FIELDS.every((field) => String(formData[field]).trim() !== ""),
-    [formData]
-  );
-
-  const paymentComplete = useMemo(
-    () => PAYMENT_FIELDS.every((field) => String(formData[field]).trim() !== ""),
-    [formData]
-  );
-
-  const activeStep = useMemo(() => {
-    if (orderConfirmed) {
-      return 4;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // 1 = Cart list, 2 = Checkout form
+  const [currentStep, setCurrentStep] = useState(1);
+  const [formData, setFormData] = useState(() => {
+    const saved = localStorage.getItem("checkout_draft");
+    if (saved) {
+      try { return JSON.parse(saved); } catch { /* ignore */ }
     }
-    if (cart.length === 0) {
-      return 1;
-    }
-    if (!deliveryComplete) {
-      return 2;
-    }
-    if (!paymentComplete) {
-      return 3;
-    }
-    return 3;
-  }, [cart.length, deliveryComplete, orderConfirmed, paymentComplete]);
-
-  const progressPercent = orderConfirmed ? 100 : completionPercent;
-
-  const loadCart = useCallback(async () => {
-    setIsLoadingCart(true);
-    try {
-      const items = await fetchCart();
-      setCart(items);
-    } catch {
-      setCart([]);
-      setNotice({ type: "error", message: "Unable to load cart items right now." });
-    } finally {
-      setIsLoadingCart(false);
-    }
-  }, []);
+    return { ...defaultForm };
+  });
 
   useEffect(() => {
     if (!user || !token) {
       navigate("/login");
-      return;
+    } else if (!formData.email) {
+      setFormData(prev => ({ ...prev, email: user.email || "" }));
     }
+  }, [navigate, token, user, formData.email]);
 
-    const draft = readDraftFromStorage(user.id);
-    if (draft) {
-      setFormData(draft);
-      setDraftState("saved");
+  const loadLocalCart = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError("");
+    try {
+      const items = await fetchCart();
+      setCartItems(Array.isArray(items) ? items : []);
+    } catch (error) {
+      console.error("Cart load error:", error);
+      setLoadError("Could not load your cart.");
+    } finally {
+      setIsLoading(false);
     }
-
-    loadCart();
-  }, [loadCart, navigate, token, user]);
+  }, []);
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("theme", theme);
-  }, [theme]);
+    loadLocalCart();
+    const handleCartUpdate = () => loadLocalCart();
+    window.addEventListener("cartUpdated", handleCartUpdate);
+    return () => window.removeEventListener("cartUpdated", handleCartUpdate);
+  }, [loadLocalCart]);
 
   useEffect(() => {
-    if (!user?.id || orderConfirmed) {
-      return undefined;
-    }
+    const timeoutId = setTimeout(() => {
+      localStorage.setItem("checkout_draft", JSON.stringify(formData));
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [formData]);
 
-    if (!hasDraftContent) {
-      clearDraftFromStorage(user.id);
-      setDraftState("idle");
-      return undefined;
-    }
-
-    setDraftState("saving");
-    const timer = setTimeout(() => {
-      try {
-        localStorage.setItem(`checkout:draft:${user.id}`, JSON.stringify(formData));
-        setDraftState("saved");
-      } catch {
-        setDraftState("idle");
-      }
-    }, 280);
-
-    return () => clearTimeout(timer);
-  }, [formData, hasDraftContent, orderConfirmed, user?.id]);
-
-  const onLogout = async () => {
-    try {
-      await apiFetch("/api/logout", { method: "POST" });
-    } catch {
-      // Local auth clear still happens if network logout fails.
-    }
-    clearAuthSession();
-    navigate("/login");
-  };
-
-  const toggleTheme = () => {
-    setTheme((current) => (current === "dark" ? "light" : "dark"));
-  };
-
-  const removeFromCart = async (itemId) => {
+  const removeLineItem = async (itemId) => {
     setNotice({ type: "info", message: "" });
     try {
-      const items = await removeItemFromCart(itemId);
-      setCart(items);
-      setNotice({ type: "success", message: "Item removed from cart." });
-    } catch {
-      setNotice({ type: "error", message: "Failed to remove item." });
+      await removeItemFromCart(itemId);
+      setCartItems((prev) => prev.filter((item) => item.id !== itemId));
+    } catch (error) {
+      setNotice({ type: "error", message: error.message || "Failed to remove item." });
     }
   };
 
-  const updateQuantity = async (itemId, newQuantity) => {
+  const updateQuantity = async (itemId, newQty) => {
+    if (newQty < 1) return;
     setNotice({ type: "info", message: "" });
     try {
-      if (newQuantity <= 0) {
-        const items = await removeItemFromCart(itemId);
-        setCart(items);
-        return;
-      }
-
-      const items = await updateCartItemQuantity(itemId, newQuantity);
-      setCart(items);
-    } catch {
-      setNotice({ type: "error", message: "Failed to update quantity." });
+      await updateCartItemQuantity(itemId, newQty);
+      setCartItems((prev) =>
+        prev.map((item) => (item.id === itemId ? { ...item, quantity: newQty } : item))
+      );
+    } catch (error) {
+      setNotice({ type: "error", message: error.message || "Failed to update quantity." });
     }
   };
 
-  const handleFormChange = (event) => {
+  const totals = useMemo(() => {
+    const subtotal = cartItems.reduce((sum, item) => {
+      const p = Number(item.price) || 0;
+      const q = Number(item.quantity) || 1;
+      return sum + p * q;
+    }, 0);
+
+    // Free shipping over $200
+    const shipping = subtotal > 0 && subtotal < 200 ? SHIPPING_COST : 0;
+    const tax = subtotal * TAX_RATE;
+    const total = subtotal + shipping + tax;
+
+    return { subtotal, shipping, tax, total };
+  }, [cartItems]);
+
+  const handleInputChange = (event) => {
     const { name, value } = event.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const validateOrderForm = () => {
-    if (cart.length === 0) {
-      return "Your cart is empty.";
-    }
-
-    const requiredFields = [
-      ["firstName", "First name"],
-      ["lastName", "Last name"],
-      ["email", "Email"],
-      ["address", "Address"],
-      ["city", "City"],
-      ["postalCode", "Postal code"],
-      ["cardName", "Cardholder name"],
-      ["cardNumber", "Card number"],
-      ["cardExpiry", "Expiry date"],
-      ["cardCVV", "CVV"]
-    ];
-
-    const missingLabel = requiredFields.find(([field]) => !String(formData[field]).trim())?.[1];
-    if (missingLabel) {
-      return `${missingLabel} is required.`;
-    }
-
-    const numericCard = formData.cardNumber.replace(/\s+/g, "");
-    if (!/^[0-9]{12,19}$/.test(numericCard)) {
-      return "Enter a valid card number (12 to 19 digits).";
-    }
-
-    if (!/^[0-9]{3,4}$/.test(formData.cardCVV)) {
-      return "Enter a valid CVV (3 or 4 digits).";
-    }
-
-    if (!/^\d{2}\/\d{2,4}$/.test(formData.cardExpiry)) {
-      return "Expiry must be in MM/YY or MM/YYYY format.";
-    }
-
-    return "";
-  };
-
-  const handleSubmitOrder = async (event) => {
+  const submitOrder = async (event) => {
     event.preventDefault();
     setNotice({ type: "info", message: "" });
 
-    const validationError = validateOrderForm();
-    if (validationError) {
-      setNotice({ type: "warning", message: validationError });
+    // Validation
+    const requiredFields = ["firstName", "lastName", "email", "address", "city", "postalCode", "cardNumber", "cardName", "cardExpiry", "cardCVC"];
+    for (const field of requiredFields) {
+      if (!formData[field] || !formData[field].trim()) {
+        setNotice({ type: "warning", message: "Please fill in all required delivery and payment fields." });
+        return;
+      }
+    }
+
+    if (!user?.id) {
+      setNotice({ type: "error", message: "User session not found." });
       return;
     }
 
-    setIsSubmittingOrder(true);
+    if (cartItems.length === 0) {
+      setNotice({ type: "warning", message: "Your cart is empty." });
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      const orderData = {
-        ...formData,
+      const orderPayload = {
         userId: user.id,
-        totalPrice: Number(total.toFixed(2)),
-        items: cart
+        items: cartItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity || 1
+        })),
+        totalPrice: totals.total,
+        ...formData
       };
 
-      const response = await apiFetch("/api/order", {
+      const response = await apiFetch("/api/orders", {
         method: "POST",
-        body: JSON.stringify(orderData)
+        body: JSON.stringify(orderPayload)
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: "Failed to create order" }));
-        throw new Error(errorData.message || "Failed to create order");
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || "Checkout failed");
       }
 
-      setConfirmedOrderDetails({
-        firstName: formData.firstName,
-        email: formData.email,
-        cardName: formData.cardName,
-        cardNumber: formData.cardNumber
-      });
+      // Clear cart
+      for (const item of cartItems) {
+        await removeItemFromCart(item.id).catch(() => {});
+      }
 
-      await clearCart();
-      clearDraftFromStorage(user?.id);
-      setDraftState("idle");
-      setCart([]);
-      setOrderConfirmed(true);
-      setNotice({ type: "success", message: "Order placed successfully." });
+      setCartItems([]);
+      localStorage.removeItem("checkout_draft");
+      setFormData(defaultForm);
+      setNotice({ type: "success", message: "Order placed successfully! Redirecting to your orders..." });
+
+      setTimeout(() => {
+        navigate("/orders");
+      }, 2500);
     } catch (error) {
-      setNotice({ type: "error", message: `Failed to place order: ${error.message}` });
+      console.error("Checkout submit error:", error);
+      setNotice({ type: "error", message: error.message || "An error occurred during checkout." });
     } finally {
-      setIsSubmittingOrder(false);
+      setIsSubmitting(false);
     }
   };
 
-  const emptyCartAndContinue = async () => {
-    setNotice({ type: "info", message: "" });
-    try {
-      await clearCart();
-      clearDraftFromStorage(user?.id);
-      setDraftState("idle");
-      setCart([]);
-      setOrderConfirmed(false);
-      setConfirmedOrderDetails(null);
-      setFormData(initialFormData);
-      setNotice({ type: "success", message: "Cart cleared. Continue shopping." });
-    } catch {
-      setNotice({ type: "error", message: "Failed to clear cart." });
-    }
+  const onLogout = async () => {
+    try { await apiFetch("/api/logout", { method: "POST" }); } catch { /* ignore */ }
+    clearAuthSession();
+    navigate("/login");
   };
 
   return (
-    <div className="checkout">
+    <div className="min-h-screen flex flex-col bg-surface">
       <Navbar user={user} onLogout={onLogout} onSearchChange={setSearch} searchValue={search} />
 
-      <main className="checkout__wrap">
+      <main className="flex-1 max-w-[1440px] mx-auto w-full px-6 pt-12 pb-24">
         {notice.message && (
-          <div className="checkout__notice">
+          <div className="mb-8">
             <Notice type={notice.type} message={notice.message} onDismiss={() => setNotice({ type: "info", message: "" })} />
           </div>
         )}
 
-        <div className="checkout__titleRow">
-          <div>
-            <h1 className="checkout__title">Checkout</h1>
-            <p className="checkout__subtitle">Review your cart, finish delivery details, and place your order.</p>
-          </div>
+        <div className="flex flex-col lg:flex-row gap-16 lg:gap-24 relative">
+          
+          {/* Left Column: Flow */}
+          <div className="flex-1">
+            <h1 className="font-display text-4xl text-primary mb-12">
+              {currentStep === 1 ? "Shopping Bag" : "Secure Checkout"}
+            </h1>
 
-          <div className="checkout__controls">
-            <div className="badge">{cartCount} items</div>
+            {isLoading ? (
+              <div className="animate-pulse space-y-8">
+                {[1, 2].map((i) => (
+                  <div key={i} className="flex gap-6">
+                    <div className="w-24 h-32 bg-surface-container-highest"></div>
+                    <div className="flex-1">
+                      <div className="h-6 bg-surface-container-highest w-3/4 mb-4"></div>
+                      <div className="h-4 bg-surface-container-highest w-1/4"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : loadError ? (
+              <Notice type="error" message={loadError} actionLabel="Retry" onAction={loadLocalCart} />
+            ) : cartItems.length === 0 ? (
+              <div className="py-16 text-center border-y border-outline-variant/30">
+                <p className="font-body text-xl text-primary mb-6">Your bag is currently empty.</p>
+                <Link to="/home" className="arcade-btn inline-block">Discover Collection</Link>
+              </div>
+            ) : currentStep === 1 ? (
+              <div className="space-y-12">
+                <div className="space-y-8 border-t border-outline-variant/30 pt-8">
+                  {cartItems.map((item) => {
+                    const rawImage = typeof item.imageURL === "string" ? item.imageURL.trim() : "";
+                    const imageSrc = item.hasImage && rawImage
+                      ? rawImage.startsWith("http") ? rawImage : `${window.location.origin}${rawImage}`
+                      : "";
 
-            <button
-              type="button"
-              className="themeToggle"
-              onClick={toggleTheme}
-              aria-label="Toggle light and dark mode"
-              title="Toggle light and dark mode"
-            >
-              <span className="themeToggle__icon">{theme === "dark" ? "Dark" : "Light"}</span>
-              <span className={`themeToggle__track ${theme === "light" ? "isOn" : ""}`}>
-                <span className="themeToggle__thumb" />
-              </span>
-            </button>
-          </div>
-        </div>
-
-        <section className="checkout__progressPanel" aria-label="Checkout progress">
-          <div className="checkout__progressMeta">
-            <strong>Progress</strong>
-            <span>{orderConfirmed ? "Complete" : `${completionPercent}% complete`}</span>
-          </div>
-          <div className="checkout__progressBar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
-            <span style={{ width: `${progressPercent}%` }} />
-          </div>
-          <ol className="checkout__steps">
-            <li className={activeStep >= 1 ? "is-active" : ""}>1. Review</li>
-            <li className={activeStep >= 2 ? "is-active" : ""}>2. Delivery</li>
-            <li className={activeStep >= 3 ? "is-active" : ""}>3. Payment</li>
-            <li className={activeStep >= 4 ? "is-active" : ""}>4. Confirm</li>
-          </ol>
-          {!orderConfirmed && (
-            <p className={`checkout__saveState checkout__saveState--${draftState}`}>
-              {isSubmittingOrder
-                ? "Placing order..."
-                : draftState === "saving"
-                  ? "Saving draft..."
-                  : hasDraftContent
-                    ? "Draft saved"
-                    : "Start entering delivery and payment details"}
-            </p>
-          )}
-        </section>
-
-        {isLoadingCart ? (
-          <div className="checkout__emptyCart">Loading your cart...</div>
-        ) : (
-          <div className="checkout__container">
-            <div className="checkout__left">
-              <h2 className="checkout__sectionTitle">Order Items</h2>
-              {cart.length === 0 ? (
-                <div className="checkout__emptyCart">Your cart is empty.</div>
-              ) : (
-                <>
-                  <div className="checkout__grid">
-                    {cart.map((item) => (
-                      <div key={item.id} className="checkout__card">
-                        <div className="checkout__card__imageContainer">
-                          {item.hasImage && typeof item.imageURL === "string" && item.imageURL.trim() ? (
-                            <img
-                              src={item.imageURL.trim().startsWith("http") ? item.imageURL.trim() : `${window.location.origin}${item.imageURL.trim()}`}
-                              alt={item.name}
-                              onError={(event) => {
-                                event.currentTarget.style.display = "none";
-                              }}
-                            />
+                    return (
+                      <div key={item.id} className="flex gap-6 sm:gap-8 group">
+                        <Link to={`/product/${item.id}`} className="w-24 sm:w-32 shrink-0 aspect-[3/4] bg-surface-container-highest overflow-hidden">
+                          {imageSrc ? (
+                            <img src={imageSrc} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                           ) : (
-                            <div className="checkout__noImage">No Image</div>
+                            <div className="w-full h-full flex flex-col items-center justify-center font-display text-outline-variant text-[10px] uppercase tracking-widest text-center">No Media</div>
                           )}
-                        </div>
-
-                        <div className="checkout__card__details">
-                          <h3 className="checkout__card__name">{item.name}</h3>
-
-                          <div className="checkout__card__meta">
-                            <div className="checkout__card__price">${Number(item.price).toFixed(2)}</div>
+                        </Link>
+                        
+                        <div className="flex-1 flex flex-col justify-between py-1">
+                          <div className="flex justify-between items-start gap-4">
+                            <Link to={`/product/${item.id}`} className="font-display text-xl text-primary hover:text-secondary hover:underline underline-offset-4 decoration-1 transition-colors line-clamp-2">
+                              {item.name}
+                            </Link>
+                            <span className="font-body font-semibold text-primary whitespace-nowrap pl-4">
+                              ${(Number(item.price) * (item.quantity || 1)).toFixed(2)}
+                            </span>
                           </div>
-
-                          <div className="checkout__card__quantity">Qty: {item.quantity || 1}</div>
-
-                          <div className="checkout__card__controls">
-                            <button className="checkout__card__btn" onClick={() => updateQuantity(item.id, (item.quantity || 1) - 1)} title="Decrease quantity">
-                              -
-                            </button>
-                            <button className="checkout__card__btn" onClick={() => updateQuantity(item.id, (item.quantity || 1) + 1)} title="Increase quantity">
-                              +
-                            </button>
+                          
+                          <div className="flex justify-between items-end mt-4">
+                            <div className="flex items-center gap-4">
+                              <span className="text-xs font-semibold uppercase tracking-widest text-on-surface-variant">Qty</span>
+                              <div className="flex items-center border border-outline-variant/50">
+                                <button className="px-3 py-1 hover:bg-surface-container-low text-primary transition-colors" onClick={() => updateQuantity(item.id, (item.quantity || 1) - 1)}>-</button>
+                                <span className="px-3 font-body text-sm font-semibold w-8 text-center">{item.quantity || 1}</span>
+                                <button className="px-3 py-1 hover:bg-surface-container-low text-primary transition-colors" onClick={() => updateQuantity(item.id, (item.quantity || 1) + 1)}>+</button>
+                              </div>
+                            </div>
+                            <button className="tertiary-btn text-on-surface-variant hover:text-red-700 hover:border-red-700" onClick={() => removeLineItem(item.id)}>Remove</button>
                           </div>
-                        </div>
-
-                        <div className="checkout__card__actions">
-                          <Link className="checkout__card__link" to={`/product/${item.id}`}>
-                            View
-                          </Link>
-
-                          <button className="checkout__card__delete" onClick={() => removeFromCart(item.id)} title="Delete from cart">
-                            Delete
-                          </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-
-                  <div className="checkout__totals">
-                    <div className="checkout__totalsRow">
-                      <span>Subtotal</span>
-                      <span>${subtotal.toFixed(2)}</span>
-                    </div>
-                    <div className="checkout__totalsRow">
-                      <span>Estimated Shipping</span>
-                      <span>Free</span>
-                    </div>
-                    <div className="checkout__totalsRow">
-                      <span>Estimated Tax (13%)</span>
-                      <span>${tax.toFixed(2)}</span>
-                    </div>
-                    <div className="checkout__totalsTotal">
-                      <span className="label">TOTAL</span>
-                      <span className="value">${total.toFixed(2)}</span>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="checkout__right">
-              <h2 className="checkout__sectionTitle">Payment</h2>
-              {orderConfirmed ? (
-                <div className="checkout__confirmation">
-                  <div className="checkout__confirmIcon">OK</div>
-                  <h3>Order Confirmed</h3>
-                  <p>Thank you, {confirmedOrderDetails?.firstName || "Customer"}. Your order has been placed successfully.</p>
-                  <p className="checkout__confirmDetails">
-                    A confirmation email will be sent to {confirmedOrderDetails?.email || "your email"}.
-                  </p>
-                  <div className="checkout__paymentSummary">
-                    <h4>Payment</h4>
-                    <p>
-                      {confirmedOrderDetails?.cardName ? `${confirmedOrderDetails.cardName} - ` : ""}
-                      Card ending in {confirmedOrderDetails?.cardNumber ? confirmedOrderDetails.cardNumber.replace(/\s+/g, "").slice(-4) : "----"}
-                    </p>
-                  </div>
-                  <button className="checkout__emptyBtn" onClick={emptyCartAndContinue}>
-                    Continue Shopping
+                    );
+                  })}
+                </div>
+                
+                <div className="flex justify-end pt-8 border-t border-outline-variant/30">
+                  <button onClick={() => setCurrentStep(2)} className="arcade-btn px-12 py-4 shadow-ambient">
+                    Proceed to Checkout
                   </button>
                 </div>
-              ) : (
-                <form className="checkout__form" onSubmit={handleSubmitOrder} noValidate>
-                  <div className="checkout__formGroup">
-                    <label>First Name</label>
-                    <input type="text" name="firstName" value={formData.firstName} onChange={handleFormChange} required placeholder="First Name" />
+              </div>
+            ) : (
+              <form onSubmit={submitOrder} className="space-y-12 pb-12">
+                <div className="flex justify-between items-center border-b border-outline-variant/30 pb-4">
+                  <h2 className="font-display text-2xl text-primary">Delivery Information</h2>
+                  <button type="button" onClick={() => setCurrentStep(1)} className="tertiary-btn uppercase tracking-widest text-xs">Return to Bag</button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                  <div>
+                    <label className="label-md block mb-2">First Name</label>
+                    <input name="firstName" className="ghost-input w-full" value={formData.firstName} onChange={handleInputChange} required />
                   </div>
-
-                  <div className="checkout__formGroup">
-                    <label>Last Name</label>
-                    <input type="text" name="lastName" value={formData.lastName} onChange={handleFormChange} required placeholder="Last Name" />
+                  <div>
+                    <label className="label-md block mb-2">Last Name</label>
+                    <input name="lastName" className="ghost-input w-full" value={formData.lastName} onChange={handleInputChange} required />
                   </div>
-
-                  <div className="checkout__formGroup">
-                    <label>Email</label>
-                    <input type="email" name="email" value={formData.email} onChange={handleFormChange} required placeholder="name@example.com" />
+                  <div className="md:col-span-2">
+                    <label className="label-md block mb-2">Email Address</label>
+                    <input type="email" name="email" className="ghost-input w-full" value={formData.email} onChange={handleInputChange} required />
                   </div>
-
-                  <div className="checkout__formGroup">
-                    <label>Address</label>
-                    <input type="text" name="address" value={formData.address} onChange={handleFormChange} required placeholder="123 Main St" />
+                  <div className="md:col-span-2 mt-4">
+                    <label className="label-md block mb-2">Shipping Address</label>
+                    <input name="address" className="ghost-input w-full" value={formData.address} onChange={handleInputChange} required />
                   </div>
-
-                  <div className="checkout__formGroup">
-                    <label>City</label>
-                    <input type="text" name="city" value={formData.city} onChange={handleFormChange} required placeholder="Toronto" />
+                  <div>
+                    <label className="label-md block mb-2">City</label>
+                    <input name="city" className="ghost-input w-full" value={formData.city} onChange={handleInputChange} required />
                   </div>
-
-                  <div className="checkout__formGroup">
-                    <label>Postal Code</label>
-                    <input type="text" name="postalCode" value={formData.postalCode} onChange={handleFormChange} required placeholder="M4N 1K1" />
+                  <div>
+                    <label className="label-md block mb-2">Postal / Zip Code</label>
+                    <input name="postalCode" className="ghost-input w-full" value={formData.postalCode} onChange={handleInputChange} required />
                   </div>
+                </div>
 
-                  <h3 className="checkout__formSubTitle">Payment Information</h3>
+                <div className="border-b border-outline-variant/30 pb-4 pt-8">
+                  <h2 className="font-display text-2xl text-primary">Payment Details</h2>
+                </div>
 
-                  <div className="checkout__formGroup">
-                    <label>Cardholder Name</label>
-                    <input type="text" name="cardName" value={formData.cardName} onChange={handleFormChange} required placeholder="Name on card" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                  <div className="md:col-span-2">
+                    <label className="label-md block mb-2">Name on Card</label>
+                    <input name="cardName" className="ghost-input w-full" value={formData.cardName} onChange={handleInputChange} required />
                   </div>
-
-                  <div className="checkout__formGroup">
-                    <label>Card Number</label>
-                    <input
-                      type="text"
-                      name="cardNumber"
-                      inputMode="numeric"
-                      value={formData.cardNumber}
-                      onChange={handleFormChange}
-                      required
-                      placeholder="1234 5678 9012 3456"
-                    />
+                  <div className="md:col-span-2">
+                    <label className="label-md block mb-2">Card Number</label>
+                    <input name="cardNumber" type="text" maxLength={19} className="ghost-input w-full" placeholder="XXXX XXXX XXXX XXXX" value={formData.cardNumber} onChange={handleInputChange} required />
                   </div>
-
-                  <div className="checkout__split">
-                    <div className="checkout__formGroup">
-                      <label>Expiry (MM/YY)</label>
-                      <input type="text" name="cardExpiry" value={formData.cardExpiry} onChange={handleFormChange} required placeholder="MM/YY" />
-                    </div>
-
-                    <div className="checkout__formGroup checkout__formGroup--narrow">
-                      <label>CVV</label>
-                      <input type="password" name="cardCVV" value={formData.cardCVV} onChange={handleFormChange} required placeholder="123" />
-                    </div>
+                  <div>
+                    <label className="label-md block mb-2">Expiry Date</label>
+                    <input name="cardExpiry" type="text" maxLength={5} className="ghost-input w-full" placeholder="MM/YY" value={formData.cardExpiry} onChange={handleInputChange} required />
                   </div>
+                  <div>
+                    <label className="label-md block mb-2">Security Code (CVC)</label>
+                    <input name="cardCVC" type="text" maxLength={4} className="ghost-input w-full" placeholder="XXX" value={formData.cardCVC} onChange={handleInputChange} required />
+                  </div>
+                </div>
 
-                  <button type="submit" className="checkout__submitBtn arcade-btn" disabled={cart.length === 0 || isSubmittingOrder}>
-                    {isSubmittingOrder ? "Placing Order..." : "Place Order"}
+                <div className="pt-8">
+                  <button type="submit" disabled={isSubmitting || cartItems.length === 0} className="arcade-btn w-full py-4 text-base tracking-widest font-semibold shadow-ambient disabled:opacity-50">
+                    {isSubmitting ? "Processing Payment..." : `Pay $${totals.total.toFixed(2)}`}
                   </button>
-                </form>
+                  <p className="text-center font-body text-sm text-on-surface-variant mt-6 flex justify-center items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                    Secure 256-bit automated encryption
+                  </p>
+                </div>
+              </form>
+            )}
+          </div>
+
+          {/* Right Column: Order Summary (Sticky) */}
+          <div className="w-full lg:w-[400px] shrink-0">
+            <div className="sticky top-32 bg-surface-container-low p-8 outline outline-1 outline-outline-variant/30">
+              <h2 className="font-display text-2xl text-primary mb-6">Order Summary</h2>
+              
+              <div className="space-y-4 mb-8">
+                <div className="flex justify-between text-on-surface-variant font-medium">
+                  <span>Subtotal</span>
+                  <span className="text-primary">${totals.subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-on-surface-variant font-medium">
+                  <span>Shipping</span>
+                  <span className="text-primary">{totals.shipping === 0 ? "Complimentary" : `$${totals.shipping.toFixed(2)}`}</span>
+                </div>
+                <div className="flex justify-between text-on-surface-variant font-medium">
+                  <span>Estimated Tax</span>
+                  <span className="text-primary">${totals.tax.toFixed(2)}</span>
+                </div>
+              </div>
+              
+              <div className="border-t border-outline-variant/50 pt-6 pb-2 mb-6">
+                <div className="flex justify-between items-end">
+                  <span className="font-display text-xl text-primary">Total</span>
+                  <span className="font-display text-2xl text-primary">${totals.total.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {currentStep === 2 && cartItems.length > 0 && (
+                <div className="mt-8">
+                   <h3 className="text-xs font-semibold uppercase tracking-widest text-on-surface-variant mb-4 pb-2 border-b border-outline-variant/30">Bag Contents</h3>
+                   <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                     {cartItems.map(item => (
+                       <div key={item.id} className="flex justify-between gap-4 text-sm font-medium items-center">
+                         <span className="text-on-surface-variant truncate">
+                           {item.quantity || 1}x {item.name}
+                         </span>
+                         <span className="text-primary shrink-0">${(Number(item.price) * (item.quantity || 1)).toFixed(2)}</span>
+                       </div>
+                     ))}
+                   </div>
+                </div>
               )}
             </div>
           </div>
-        )}
+
+        </div>
       </main>
 
-      <footer className="footer">
-        <div className="footer__inner">
-          <div className="footer__brand">SHOPLY</div>
-          <div className="footer__muted">Demo e-commerce platform - CPS630</div>
-
-          <div className="footer__links">
-            <a className="footer__link">Hotline</a>
-            <a className="footer__link">Email</a>
-            <a className="footer__link">Feedback</a>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
