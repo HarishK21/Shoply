@@ -3,19 +3,19 @@ const mongoose = require('mongoose');
 
 const orderSchema = new mongoose.Schema({
     id: { type: Number, unique: true },
-    firstName: { type: String, required: true },
-    lastName: { type: String, required: true },
+    firstName: { type: String, required: true, trim: true, maxlength: 50 },
+    lastName: { type: String, required: true, trim: true, maxlength: 50 },
     userId: { type: Number, required: true, ref: 'User' },
-    email: { type: String, required: true },
-    address: { type: String, required: true },
-    city: { type: String, required: true },
-    postalCode: { type: String, required: true },
-    cardName: { type: String, required: true },
-    cardNumber: { type: String, required: true },
-    expiryDate: { type: String, required: true },
-    cvv: { type: String, required: true },
-    totalPrice: { type: Number, required: true },
-    items: { type: Array, required: true },
+    email: { type: String, required: true, trim: true, lowercase: true, maxlength: 254 },
+    address: { type: String, required: true, trim: true, maxlength: 200 },
+    city: { type: String, required: true, trim: true, maxlength: 80 },
+    postalCode: { type: String, required: true, trim: true, maxlength: 12 },
+    cardName: { type: String, required: true, trim: true, maxlength: 80 },
+    cardNumber: { type: String, required: true, trim: true, maxlength: 25 }, // store masked form only
+    expiryDate: { type: String, default: '', maxlength: 7 },
+    cvv: { type: String, default: '', maxlength: 4, select: false },
+    totalPrice: { type: Number, required: true, min: 0.01, max: 1_000_000 },
+    items: { type: Array, required: true, validate: [(value) => Array.isArray(value) && value.length <= 100, 'Too many order items'] },
 }, { timestamps: true });
 
 // Auto-increment ID pre-validate hook

@@ -1,131 +1,219 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Noto+Serif:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+@import "tailwindcss";
 
-*,
-*::before,
-*::after {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@theme {
+  /* Colors - Shoply */
+  --color-primary: #000000;
+  --color-secondary: #775a19;
+  
+  /* Surface Layers */
+  --color-surface: #f9f9f9;
+  --color-surface-container-low: #f3f3f3;
+  --color-surface-container: #eeeeee;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-highest: #e2e2e2;
+  
+  /* Text & Accents on Surfaces */
+  --color-on-surface: #1a1c1c;
+  --color-on-surface-variant: #444748;
+  --color-on-secondary: #ffffff;
+  
+  /* Borders and Ghost outlines */
+  --color-outline: #747878;
+  --color-outline-variant: #c4c7c7;
+  
+  /* Accents */
+  --color-secondary-fixed-dim: #e9c176;
+
+  /* Typography */
+  --font-display: 'Noto Serif', serif;
+  --font-body: 'Manrope', sans-serif;
 }
 
-:root {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  line-height: 1.6;
-  font-weight: 400;
-  color-scheme: dark;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  scroll-behavior: smooth;
+@layer utilities {
+  .label-md {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--color-on-surface);
+  }
+  .ghost-input {
+    background-color: var(--color-surface-container-lowest);
+    border: 1px solid var(--color-outline-variant);
+    color: var(--color-on-surface);
+    caret-color: var(--color-primary);
+    padding: 0.7rem 0.9rem;
+    transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  }
+  .ghost-input::placeholder {
+    color: var(--color-outline);
+  }
+  .ghost-input:focus {
+    outline: none;
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 0 3px rgba(233, 193, 118, 0.35);
+    background-color: var(--color-surface-container-lowest);
+  }
+  .ghost-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .secondary-btn {
+    background-color: var(--color-surface-container-low);
+    border: 1px solid var(--color-outline-variant);
+    color: var(--color-primary);
+    padding: 0.75rem 1rem;
+    transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+  }
+  .secondary-btn:hover {
+    background-color: var(--color-surface-container-highest);
+    border-color: var(--color-secondary);
+    color: var(--color-secondary);
+  }
+  .secondary-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .tertiary-btn {
+    background-color: transparent;
+    border-bottom: 1px solid var(--color-outline-variant);
+    color: var(--color-on-surface-variant);
+    padding: 0.45rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.75rem;
+    font-weight: 600;
+    transition: color 180ms ease, border-color 180ms ease, opacity 180ms ease;
+  }
+  .tertiary-btn:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+  .tertiary-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .arcade-btn {
+    background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-fixed-dim) 100%);
+    color: var(--color-on-secondary);
+    border: 1px solid transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    transition: filter 180ms ease, transform 180ms ease;
+  }
+  .arcade-btn:hover {
+    filter: brightness(1.05);
+  }
+  .arcade-btn:active {
+    transform: translateY(1px);
+  }
+  .arcade-btn:disabled {
+    cursor: not-allowed;
+  }
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-outline-variant) transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--color-outline-variant) 75%, transparent);
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background-clip: content-box;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--color-on-surface-variant) 50%, transparent);
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  .accent-secondary {
+    accent-color: var(--color-secondary);
+  }
+  .animate-in {
+    --enter-opacity: 0;
+    --enter-scale: 1;
+    animation: enter 180ms ease-out both;
+  }
+  .fade-in {
+    --enter-opacity: 0;
+  }
+  .zoom-in-95 {
+    --enter-scale: 0.95;
+  }
+  @keyframes enter {
+    from {
+      opacity: var(--enter-opacity);
+      transform: scale(var(--enter-scale));
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  .shadow-ambient {
+    box-shadow: 0 0 40px rgba(26, 28, 28, 0.04);
+  }
+  .shadow-lift {
+    box-shadow: 0 10px 40px rgba(26, 28, 28, 0.04);
+  }
+  .glass-panel {
+    background-color: rgba(249, 249, 249, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .arcade-gradient {
+    background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-fixed-dim) 100%);
+  }
+  .arcade-gradient-hover {
+    filter: brightness(1.05);
+    background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-fixed-dim) 100%);
+  }
 }
 
-html,
-body,
-#root {
-  height: 100%;
-  width: 100%;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  position: relative;
-  overflow-x: hidden;
-  background-color: var(--home-bg, #0b0b0f);
-}
-
-/* 3D Animated Grid Background (Gaming Vibe) */
-body::before {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: -50%;
-  width: 200%;
-  height: 200vh;
-  background-image:
-    linear-gradient(rgba(129, 140, 248, 0.45) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(129, 140, 248, 0.45) 1px, transparent 1px);
-  background-size: 60px 60px;
-  transform: perspective(500px) rotateX(60deg) translateY(-100px) translateZ(-200px);
-  animation: gridMove 15s linear infinite;
-  z-index: -1;
-  pointer-events: none;
-  mask-image: linear-gradient(transparent 10%, black 85%);
-  -webkit-mask-image: linear-gradient(transparent 10%, black 85%);
-}
-
-/* Light mode overrides for the grid */
-:root[data-theme="light"] body::before {
-  background-image:
-    linear-gradient(rgba(99, 102, 241, 0.35) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99, 102, 241, 0.35) 1px, transparent 1px);
-}
-
-@keyframes gridMove {
-  0% {
-    transform: perspective(500px) rotateX(60deg) translateY(0) translateZ(-200px);
+@layer base {
+  html, body, #root {
+    min-height: 100%;
+    width: 100%;
   }
 
-  100% {
-    transform: perspective(500px) rotateX(60deg) translateY(50px) translateZ(-200px);
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-on-surface);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-}
 
-a {
-  font-weight: 500;
-  color: #818cf8;
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 400;
+  }
 
-a:hover {
-  color: #a5b4fc;
-}
+  a:focus-visible,
+  button:focus-visible,
+  select:focus-visible {
+    outline: 2px solid var(--color-secondary);
+    outline-offset: 2px;
+  }
 
-img {
-  max-width: 100%;
-  height: auto;
-}
-
-button {
-  font-family: inherit;
-  cursor: pointer;
-}
-
-/* 3D Tactile Arcade Buttons */
-.arcade-btn {
-  position: relative;
-  background: linear-gradient(135deg, var(--accent-color), var(--accent-hover));
-  color: #fff;
-  border: none;
-  border-radius: 12px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow:
-    0 4px 0 #3730a3,
-    /* Solid 3D edge */
-    0 8px 15px rgba(0, 0, 0, 0.4);
-  /* Drop shadow */
-  transform: translateY(0);
-}
-
-.arcade-btn:hover {
-  filter: brightness(1.1);
-  transform: translateY(-2px);
-  box-shadow:
-    0 6px 0 #3730a3,
-    0 12px 20px rgba(0, 0, 0, 0.5);
-}
-
-.arcade-btn:active {
-  transform: translateY(4px);
-  /* Pushes down */
-  box-shadow:
-    0 0 0 #3730a3,
-    /* Edge disappears into the board */
-    0 2px 5px rgba(0, 0, 0, 0.4);
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  textarea:-webkit-autofill:hover,
+  textarea:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--color-on-surface);
+    box-shadow: 0 0 0 1000px var(--color-surface-container-lowest) inset;
+  }
 }

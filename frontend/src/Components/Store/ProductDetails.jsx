@@ -1,339 +1,366 @@
-import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams, Link } from "react-router-dom";
+import ConfirmDialog from "../UI/ConfirmDialog";
+import Notice from "../UI/Notice";
 import Navbar from "./Navbar";
-import "./Home.css";
+import Footer from "../UI/Footer";
+import { apiFetch, clearAuthSession, getAuthToken, getStoredUser } from "../../lib/auth";
+import { addItemToCart } from "../../lib/cart";
 
-const ProductDetails = () => {
-    const { id } = useParams();
-    const navigate = useNavigate();
-    const [product, setProduct] = useState(null);
-    const [search, setSearch] = useState("");
+const emptyEditState = {
+  name: "",
+  description: "",
+  postedBy: "",
+  userId: null,
+  price: "",
+  hasImage: false,
+  imageURL: ""
+};
 
-    // Edit modal state
-    const [showEditForm, setShowEditForm] = useState(false);
-    const [editData, setEditData] = useState({
-        name: '',
-        description: '',
-        postedBy: '',
-        userId: null,
-        price: '',
-        hasImage: false,
-        imageURL: ''
-    });
+export default function ProductDetails() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
 
-    const [theme, setTheme] = useState(() => {
-        return localStorage.getItem("theme") || "dark";
-    });
+  const [product, setProduct] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
-    const user = JSON.parse(localStorage.getItem("user") || "null");
+  const [notice, setNotice] = useState({ type: "info", message: "" });
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-    const addToCart = () => {
-        const currentCart = JSON.parse(localStorage.getItem("cart") || "[]");
-        const existingItemIndex = currentCart.findIndex((item) => item.id === product.id);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editData, setEditData] = useState(emptyEditState);
 
-        if (existingItemIndex > -1) {
-            currentCart[existingItemIndex].quantity = (currentCart[existingItemIndex].quantity || 1) + 1;
-        } else {
-            currentCart.push({ ...product, quantity: 1 });
-        }
+  const [user] = useState(() => getStoredUser());
+  const [token] = useState(() => getAuthToken());
 
-        localStorage.setItem("cart", JSON.stringify(currentCart));
-        alert(`Added ${product.name} to cart!`);
-        window.dispatchEvent(new Event("storage"));
-    };
-
-    const deleteProduct = async () => {
-        if (!window.confirm(`Are you sure you want to delete "${product.name}"?`)) {
-            return;
-        }
-
-        try {
-            const response = await fetch(`/api/items/${product.id}`, {
-                method: 'DELETE'
-            });
-
-            if (response.ok) {
-                try {
-                    const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
-                    const updatedCart = currentCart.filter((it) => it.id !== product.id);
-                    localStorage.setItem('cart', JSON.stringify(updatedCart));
-                    window.dispatchEvent(new Event('storage'));
-                    window.dispatchEvent(new Event('cartUpdated'));
-                } catch (e) {
-                    console.warn('Failed to update local cart after deletion', e);
-                }
-
-                alert('Product deleted successfully!');
-                navigate('/home');
-            } else {
-                alert('Failed to delete product');
-            }
-        } catch (error) {
-            console.error('Error deleting product:', error);
-            alert('Error deleting product');
-        }
-    };
-
-    // ---- Edit (Update) handlers ----
-    const openEditForm = () => {
-        setEditData({
-            name: product.name || '',
-            description: product.description || '',
-            postedBy: product.postedBy || '',
-            userId: product.userId || 0,
-            price: product.price || '',
-            hasImage: product.hasImage || false,
-            imageURL: product.imageURL || ''
-        });
-        setShowEditForm(true);
-    };
-
-    const closeEditForm = () => setShowEditForm(false);
-
-    const handleEditChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setEditData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
-    };
-
-    const submitEdit = async (e) => {
-        e.preventDefault();
-        if (!editData.name || editData.price === '') {
-            alert('Please enter item name and price');
-            return;
-        }
-
-        try {
-            const resp = await fetch(`/api/items/${product.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: editData.name,
-                    description: editData.description,
-                    postedBy: editData.postedBy,
-                    userId: editData.userId,
-                    price: Number(editData.price),
-                    hasImage: !!editData.hasImage,
-                    imageURL: editData.imageURL
-                })
-            });
-
-            if (!resp.ok) {
-                const err = await resp.json().catch(() => ({}));
-                alert(err.message || 'Failed to update item');
-                return;
-            }
-
-            const updated = await resp.json();
-            setProduct(updated);
-
-            // Also update in local cart if present
-            try {
-                const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
-                const cartIdx = currentCart.findIndex((it) => it.id === updated.id);
-                if (cartIdx > -1) {
-                    currentCart[cartIdx] = { ...currentCart[cartIdx], ...updated };
-                    localStorage.setItem('cart', JSON.stringify(currentCart));
-                    window.dispatchEvent(new Event('storage'));
-                    window.dispatchEvent(new Event('cartUpdated'));
-                }
-            } catch (e) {
-                console.warn('Failed to update cart after edit', e);
-            }
-
-            closeEditForm();
-            alert('Product updated successfully!');
-        } catch (err) {
-            console.error('Error updating item', err);
-            alert('Error updating item');
-        }
-    };
-
-    useEffect(() => {
-        if (!user) navigate("/login");
-    }, [user, navigate]);
-
-    useEffect(() => {
-        document.documentElement.setAttribute("data-theme", theme);
-        localStorage.setItem("theme", theme);
-    }, [theme]);
-
-    useEffect(() => {
-        fetch(`/api/items/${id}`)
-            .then(res => {
-                if (!res.ok) throw new Error("Product not found");
-                return res.json();
-            })
-            .then(data => setProduct(data))
-            .catch(err => console.error('Error fetching product:', err));
-    }, [id]);
-
-    const onLogout = () => {
-        localStorage.removeItem("user");
-        navigate("/login");
-    };
-
-    const toggleTheme = () => {
-        setTheme((t) => (t === "dark" ? "light" : "dark"));
-    };
-
-    if (!product) {
-        return <div className="home" style={{ justifyContent: 'center', alignItems: 'center', display: 'flex', fontSize: '16px', color: 'var(--home-subtext)' }}>Loading...</div>;
+  useEffect(() => {
+    if (!user || !token) {
+      navigate("/login");
     }
+  }, [token, user, navigate]);
 
-    return (
-        <div className="home">
-            <Navbar user={user} onLogout={onLogout} onSearchChange={setSearch} searchValue={search} />
+  const loadProduct = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError("");
+    try {
+      const response = await fetch(`/api/items/${id}`);
+      if (!response.ok) {
+        throw new Error("Product not found");
+      }
+      const data = await response.json();
+      setProduct(data);
+    } catch (error) {
+      console.error("Fetch product error:", error);
+      setLoadError("Could not load this product. It may have been removed.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id]);
 
-            <main className="home__wrap">
-                <div className="home__titleRow">
-                    <div>
-                        <h1 className="home__title">{product.name}</h1>
-                        <p className="home__subtitle">Product Details</p>
+  useEffect(() => {
+    loadProduct();
+  }, [loadProduct]);
+
+  const onLogout = async () => {
+    try {
+      await apiFetch("/api/logout", { method: "POST" });
+    } catch {
+      // Local auth clear still happens if network logout fails.
+    }
+    clearAuthSession();
+    navigate("/login");
+  };
+
+  const canManageProduct = Boolean(product && (product.userId === user?.id || user?.role === "admin"));
+
+  const addToCart = async () => {
+    if (!product) return;
+
+    setNotice({ type: "info", message: "" });
+    setIsAddingToCart(true);
+    try {
+      await addItemToCart(product.id, 1);
+      setNotice({ type: "success", message: `${product.name} was added to your cart.` });
+    } catch (error) {
+      setNotice({ type: "error", message: error.message || "Failed to add item to cart." });
+    } finally {
+      setIsAddingToCart(false);
+    }
+  };
+
+  const requestDeleteProduct = () => setShowDeleteConfirm(true);
+
+  const confirmDeleteProduct = async () => {
+    if (!product) return;
+
+    setIsDeleting(true);
+    setNotice({ type: "info", message: "" });
+    try {
+      const response = await fetch(`/api/items/${product.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.message || "Failed to delete product.");
+      }
+      window.dispatchEvent(new Event("cartUpdated"));
+      navigate("/home", { replace: true });
+    } catch (error) {
+      console.error("Delete product error:", error);
+      setNotice({ type: "error", message: error.message || "Could not delete product." });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  const openEditForm = () => {
+    if (!product) return;
+    setNotice({ type: "info", message: "" });
+    setEditData({
+      name: product.name || "",
+      description: product.description || "",
+      postedBy: product.postedBy || "",
+      userId: product.userId || 0,
+      price: product.price || "",
+      hasImage: product.hasImage || false,
+      imageURL: product.imageURL || ""
+    });
+    setShowEditForm(true);
+  };
+
+  const closeEditForm = () => {
+    if (!isSavingEdit) setShowEditForm(false);
+  };
+
+  const handleEditChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    setEditData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  };
+
+  const submitEdit = async (event) => {
+    event.preventDefault();
+    setNotice({ type: "info", message: "" });
+
+    if (!editData.name.trim()) return setNotice({ type: "warning", message: "Item name is required." });
+    const parsedPrice = Number(editData.price);
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) return setNotice({ type: "warning", message: "Price must be a number greater than 0." });
+
+    setIsSavingEdit(true);
+    try {
+      const response = await fetch(`/api/items/${product.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editData.name.trim(),
+          description: editData.description.trim(),
+          postedBy: editData.postedBy.trim(),
+          userId: editData.userId,
+          price: parsedPrice,
+          hasImage: Boolean(editData.hasImage),
+          imageURL: editData.imageURL.trim()
+        })
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message || "Failed to update item.");
+
+      setProduct(payload);
+      window.dispatchEvent(new Event("cartUpdated"));
+      setShowEditForm(false);
+      setNotice({ type: "success", message: "Product updated successfully." });
+    } catch (error) {
+      console.error("Update product error:", error);
+      setNotice({ type: "error", message: error.message || "Could not update product." });
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const rawImage = typeof product?.imageURL === "string" ? product.imageURL.trim() : "";
+  const imageSrc = product?.hasImage && rawImage
+    ? rawImage.startsWith("http") ? rawImage : `${window.location.origin}${rawImage}`
+    : "";
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Navbar user={user} onLogout={onLogout} onSearchChange={setSearch} searchValue={search} />
+
+      <main className="flex-1 max-w-[1440px] mx-auto w-full px-6 pt-12 pb-24">
+        {notice.message && (
+          <div className="mb-8">
+            <Notice type={notice.type} message={notice.message} onDismiss={() => setNotice({ type: "info", message: "" })} />
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 animate-pulse mt-12">
+            <div className="bg-surface-container-highest w-full max-w-[520px] h-[360px] md:h-[520px] lg:h-[calc(100vh-12rem)] max-h-[680px] mx-auto"></div>
+            <div>
+              <div className="h-12 bg-surface-container-highest w-3/4 mb-4"></div>
+              <div className="h-6 bg-surface-container-highest w-1/4 mb-12"></div>
+              <div className="h-24 bg-surface-container-highest w-full mb-8"></div>
+              <div className="h-12 bg-surface-container-highest w-full mb-4"></div>
+            </div>
+          </div>
+        ) : loadError ? (
+          <div className="mt-12 text-center py-24 border border-outline-variant/30 flex justify-center flex-col items-center">
+            <h2 className="font-display text-3xl text-primary mb-4">{loadError}</h2>
+            <button onClick={() => navigate("/home")} className="tertiary-btn mt-6">Return to Collection</button>
+          </div>
+        ) : product ? (
+          <>
+            {/* Breadcrumb */}
+            <nav className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-on-surface-variant mb-12">
+              <Link to="/home" className="hover:text-primary transition-colors">Shop</Link>
+              <span>/</span>
+              <span className="text-primary truncate max-w-xs">{product.name}</span>
+            </nav>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-16 lg:gap-24">
+              {/* Left Column: Image Area */}
+              <div className="bg-surface relative lg:sticky lg:top-28 h-fit flex justify-center">
+                <div className="w-full max-w-[520px] h-[360px] md:h-[520px] lg:h-[calc(100vh-12rem)] max-h-[680px] overflow-hidden bg-surface-container-highest">
+                  {imageSrc ? (
+                    <img
+                      src={imageSrc}
+                      alt={product.name}
+                      className="w-full h-full object-contain"
+                      onError={(e) => { e.currentTarget.style.display = "none"; }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-surface-container-high flex flex-col items-center justify-center font-display text-outline text-2xl">
+                       Shoply <span className="font-body text-xs uppercase tracking-widest mt-2">Item #{product.id}</span>
                     </div>
+                  )}
+                </div>
+              </div>
 
-                    <div className="home__controls">
-                        <button type="button" className="themeToggle" onClick={toggleTheme}>
-                            <span className="themeToggle__icon">{theme === "dark" ? "🌙" : "☀️"}</span>
-                            <span className={`themeToggle__track ${theme === "light" ? "isOn" : ""}`}>
-                                <span className="themeToggle__thumb" />
-                            </span>
+              {/* Right Column: Product Details */}
+              <div className="pt-4 lg:pt-12 md:pb-[30vh]">
+                <h1 className="font-display text-4xl lg:text-5xl text-primary mb-4 leading-tight">{product.name}</h1>
+                <p className="font-body text-2xl font-semibold text-primary mb-10">${Number(product.price).toFixed(2)}</p>
+
+                <div className="space-y-6 mb-12 text-on-surface-variant font-medium text-[15px]">
+                  <p className="leading-relaxed">
+                    {product.description || "An exercise in architectural tailoring. This signature piece features sharp lines that command presence while maintaining effortless grace. Crafted from responsibly sourced materials."}
+                  </p>
+                  
+                  <ul className="space-y-3 pt-6">
+                    {product.postedBy && <li className="flex items-center"><span className="w-2 h-2 rounded-full bg-secondary/60 mr-4"></span> Seller: {product.postedBy}</li>}
+                    <li className="flex items-center"><span className="w-2 h-2 rounded-full bg-secondary/60 mr-4"></span> Item Reference: {product.id}</li>
+                    <li className="flex items-center"><span className="w-2 h-2 rounded-full bg-secondary/60 mr-4"></span> Complimentary express shipping</li>
+                    <li className="flex items-center"><span className="w-2 h-2 rounded-full bg-secondary/60 mr-4"></span> 14-day return window</li>
+                  </ul>
+                </div>
+
+                <div className="space-y-4 border-y border-outline-variant/30 py-8 mb-12">
+                  <button 
+                    onClick={addToCart} 
+                    disabled={isAddingToCart}
+                    className="w-full arcade-btn py-4 text-base tracking-widest uppercase font-semibold text-on-secondary shadow-ambient"
+                  >
+                    {isAddingToCart ? "Adding to Bag..." : "Add to Bag"}
+                  </button>
+
+                  {canManageProduct && (
+                    <div className="grid grid-cols-2 gap-4 mt-6">
+                      <button 
+                        onClick={openEditForm}
+                        className="secondary-btn w-full uppercase tracking-widest text-xs font-semibold"
+                      >
+                        Edit Record
+                      </button>
+                      <button 
+                        onClick={requestDeleteProduct}
+                        disabled={isDeleting}
+                        className="w-full border border-red-200 text-red-700 bg-transparent hover:bg-red-50 rounded px-4 py-3 uppercase tracking-widest text-xs font-semibold transition-colors"
+                      >
+                        Delete Record
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
+
+            {/* Edit Modal Overlay */}
+            {showEditForm && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto" onClick={(e) => e.target === e.currentTarget && closeEditForm()}>
+                <div className="bg-surface-container-lowest w-full max-w-2xl shadow-lift my-8 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="px-8 py-6 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
+                    <h3 className="font-display text-2xl text-primary">Edit Record</h3>
+                    <button onClick={closeEditForm} className="text-on-surface-variant hover:text-primary transition-colors text-4xl font-light leading-none">&times;</button>
+                  </div>
+                  
+                  <div className="p-8">
+                    <form onSubmit={submitEdit} className="space-y-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                          <label className="label-md block mb-2">Title *</label>
+                          <input name="name" className="ghost-input w-full font-medium" value={editData.name} onChange={handleEditChange} required />
+                        </div>
+                        <div>
+                          <label className="label-md block mb-2">Price *</label>
+                          <input name="price" className="ghost-input w-full font-medium" type="number" step="0.01" value={editData.price} onChange={handleEditChange} required />
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                          <label className="label-md block mb-2">Seller</label>
+                          <input name="postedBy" className="ghost-input w-full" value={editData.postedBy} onChange={handleEditChange} />
+                        </div>
+                        <div>
+                          <label className="label-md block mb-2">Image Reference URL</label>
+                          <input name="imageURL" className="ghost-input w-full" value={editData.imageURL} onChange={handleEditChange} />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="label-md block mb-2">Description</label>
+                        <textarea name="description" className="ghost-input w-full resize-y" value={editData.description} onChange={handleEditChange} rows={4} />
+                      </div>
+                      
+                      <label className="flex items-center gap-3 cursor-pointer mt-4">
+                        <input type="checkbox" name="hasImage" className="w-5 h-5 accent-secondary border-outline-variant" checked={editData.hasImage} onChange={handleEditChange} />
+                        <span className="font-medium text-primary">Media attached to this record</span>
+                      </label>
+                      
+                      <div className="pt-8 mt-4 border-t border-outline-variant/30 flex justify-end gap-6 items-center">
+                        <button type="button" className="tertiary-btn border-outline-variant text-on-surface-variant py-2 hover:text-primary transition-colors" onClick={closeEditForm} disabled={isSavingEdit}>
+                          Cancel
                         </button>
-                    </div>
+                        <button type="submit" className="arcade-btn px-8" disabled={isSavingEdit}>
+                          {isSavingEdit ? "Saving..." : "Save Record"}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
                 </div>
+              </div>
+            )}
+          </>
+        ) : null}
+      </main>
 
-                <div className="card" style={{
-                    marginTop: '20px',
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(280px, 1fr) 2fr',
-                    gap: '40px',
-                    alignItems: 'start'
-                }}>
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        title="Delete this record?"
+        message="This action permanently removes the product from the catalog and cannot be undone."
+        confirmLabel="Erase permanently"
+        cancelLabel="Keep record"
+        danger
+        busy={isDeleting}
+        onConfirm={confirmDeleteProduct}
+        onCancel={() => !isDeleting && setShowDeleteConfirm(false)}
+      />
 
-                    {/* LEFT: Image */}
-                    <div style={{
-                        width: '100%',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        backgroundColor: 'rgba(255,255,255,0.02)',
-                        borderRadius: '16px',
-                        padding: '40px',
-                        border: '1px solid var(--border)',
-                        minHeight: '380px'
-                    }}>
-                        {product.hasImage ? (
-                            <img
-                                src={product.imageURL.startsWith('http') ? product.imageURL : `${window.location.origin}${product.imageURL}`}
-                                alt={product.name}
-                                style={{
-                                    maxWidth: '100%',
-                                    maxHeight: '380px',
-                                    objectFit: 'contain',
-                                    filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.2))'
-                                }}
-                                onError={(e) => { e.target.style.display = 'none'; }}
-                            />
-                        ) : (
-                            <div style={{ color: 'var(--home-subtext)', fontStyle: 'italic' }}>
-                                No Image Available
-                            </div>
-                        )}
-                    </div>
-
-                    {/* RIGHT: Details */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <div style={{ marginBottom: '0', display: 'block' }}>
-                            <div style={{ fontSize: '1.8rem', color: 'var(--accent-color)', fontWeight: '800', letterSpacing: '-0.5px' }}>
-                                {product.name}
-                            </div>
-                            <div className="badge" style={{ marginTop: '10px', display: 'inline-block' }}>
-                                Item ID: {product.id}
-                            </div>
-                        </div>
-
-                        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-                            <h3 style={{ marginBottom: '10px', fontSize: '16px', fontWeight: '700' }}>About this item</h3>
-                            <p style={{ lineHeight: '1.7', color: 'var(--home-subtext)', fontSize: '15px' }}>
-                                {product.description}
-                            </p>
-                        </div>
-
-                        {product.postedBy && (
-                            <div style={{ fontSize: '14px', opacity: 0.6, fontStyle: 'italic' }}>
-                                Seller: {product.postedBy}
-                            </div>
-                        )}
-
-                        <div style={{ fontSize: '2rem', color: 'var(--accent-color)', fontWeight: '800' }}>
-                            ${product.price}
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                            <button type="button" className="addToCartBtn" onClick={addToCart} style={{ flex: 1 }}>
-                                🛒 Add to Cart
-                            </button>
-                          {(product.userId === user?.id || user?.role === 'admin') && (
-                            <button type="button" className="addToCartBtn" onClick={openEditForm} style={{
-                                flex: 1,
-                                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                                boxShadow: '0 4px 16px rgba(245, 158, 11, 0.3)'
-                            }}>
-                                ✏️ Edit Product
-                            </button> )}
-                            
-                            <button type="button" className="addToCartBtn backBtn" onClick={() => navigate("/home")} style={{ flex: 1 }}>
-                                ← Back to Home
-                            </button>
-                            {(product.userId === user?.id || user?.role === 'admin') && (
-                            <button type="button" className="addToCartBtn" onClick={deleteProduct} style={{
-                                flex: 1,
-                                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                                boxShadow: '0 4px 16px rgba(239, 68, 68, 0.3)'
-                            }}>
-                                🗑️ Delete Product
-                            </button> )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Edit Modal */}
-                {showEditForm && (
-                    <div className="editModalOverlay" onClick={(e) => { if (e.target === e.currentTarget) closeEditForm(); }}>
-                        <div className="editModalCard">
-                            <h3 style={{ marginTop: 0, marginBottom: '18px', fontSize: '20px', fontWeight: '700' }}>Edit Product</h3>
-                            <form onSubmit={submitEdit}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                    <input name="name" placeholder="Name" value={editData.name} onChange={handleEditChange} required />
-                                    <input name="postedBy" placeholder="Seller" value={editData.postedBy} onChange={handleEditChange} />
-                                    <input name="price" placeholder="Price" type="number" step="0.01" value={editData.price} onChange={handleEditChange} required />
-                                    <input name="imageURL" placeholder="Image URL" value={editData.imageURL} onChange={handleEditChange} />
-                                </div>
-                                <div style={{ marginTop: 12 }}>
-                                    <textarea name="description" placeholder="Description" value={editData.description} onChange={handleEditChange} rows={4} style={{ width: '100%', resize: 'vertical' }} />
-                                </div>
-                                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '14px' }}>
-                                        <input type="checkbox" name="hasImage" checked={editData.hasImage} onChange={handleEditChange} /> Has Image
-                                    </label>
-                                </div>
-                                <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                                    <button type="button" onClick={closeEditForm}>Cancel</button>
-                                    <button type="submit">Save Changes</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
-            </main>
-
-            <footer className="footer">
-                <div className="footer__inner">
-                    <div className="footer__brand">SHOPLY</div>
-                    <div className="footer__muted">demo e-commerce platform · cps630</div>
-                </div>
-            </footer>
-        </div>
-    );
+      <Footer />
+    </div>
+  );
 }
-
-export default ProductDetails;

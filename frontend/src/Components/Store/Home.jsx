@@ -1,49 +1,97 @@
 import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
+import Notice from "../UI/Notice";
 import Navbar from "./Navbar";
-import "./Home.css";
+import Footer from "../UI/Footer";
+import CyberBackdrop from "../UI/CyberBackdrop";
+import { apiFetch, clearAuthSession, getAuthToken, getStoredUser } from "../../lib/auth";
+
+const initialItemState = {
+  name: "",
+  description: "",
+  postedBy: "",
+  price: "",
+  hasImage: false,
+  imageURL: ""
+};
+
+const MotionLink = motion(Link);
 
 export default function Home() {
   const [items, setItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
   const [sortBy, setSortBy] = useState("none");
+  const [showFilters, setShowFilters] = useState(false);
+  const [notice, setNotice] = useState({ type: "info", message: "" });
 
-  // theme state
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("theme") || "dark";
-  });
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const [newItem, setNewItem] = useState(initialItemState);
 
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem("user") || "null");
+  const [user] = useState(() => getStoredUser());
+  const [token] = useState(() => getAuthToken());
 
   useEffect(() => {
-    if (!user) navigate("/login");
+    if (!user || !token) {
+      navigate("/login");
+    }
+  }, [navigate, token, user]);
+
+  const loadItems = async () => {
+    setIsLoading(true);
+    setLoadError("");
+    try {
+      const response = await fetch("/api/items");
+      if (!response.ok) {
+        throw new Error("Could not load products right now.");
+      }
+      const payload = await response.json();
+      setItems(Array.isArray(payload) ? payload : []);
+    } catch (error) {
+      console.error("Fetch items error:", error);
+      setLoadError("Could not load products right now. Try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadItems();
   }, []);
 
   useEffect(() => {
-    fetch("/api/items")
-      .then((r) => r.json())
-      .then(setItems)
-      .catch(console.error);
-  }, []);
-
-  const filtered = useMemo(() => {
-    let result = items;
-
-    // Apply search filter
-    const q = search.trim().toLowerCase();
-    if (q) {
-      result = result.filter((it) => it.name.toLowerCase().includes(q));
+    if (!showAddForm) {
+      return undefined;
     }
 
-    // Apply price range filter
+    const onEscape = (event) => {
+      if (event.key === "Escape" && !isAddingItem) {
+        setShowAddForm(false);
+      }
+    };
+
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [isAddingItem, showAddForm]);
+
+  const filtered = useMemo(() => {
+    let result = [...items];
+
+    const q = search.trim().toLowerCase();
+    if (q) {
+      result = result.filter((item) => item.name.toLowerCase().includes(q));
+    }
+
     const minPrice = priceMin === "" ? -Infinity : Number(priceMin);
     const maxPrice = priceMax === "" ? Infinity : Number(priceMax);
-    result = result.filter((it) => it.price >= minPrice && it.price <= maxPrice);
+    result = result.filter((item) => item.price >= minPrice && item.price <= maxPrice);
 
-    // Apply sorting
     if (sortBy === "price-asc") {
       result.sort((a, b) => a.price - b.price);
     } else if (sortBy === "price-desc") {
@@ -53,316 +101,346 @@ export default function Home() {
     return result;
   }, [items, search, priceMin, priceMax, sortBy]);
 
-  // apply theme to entire page
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("theme", theme);
-  }, [theme]);
-
-  const onLogout = () => {
-    localStorage.removeItem("user");
+  const onLogout = async () => {
+    try {
+      await apiFetch("/api/logout", { method: "POST" });
+    } catch {
+      // Local auth clear still happens if network logout fails.
+    }
+    clearAuthSession();
     navigate("/login");
   };
 
-  const toggleTheme = () => {
-    setTheme((t) => (t === "dark" ? "light" : "dark"));
+  const openAddForm = () => {
+    setNotice({ type: "info", message: "" });
+    setShowAddForm(true);
   };
 
-  // Add item modal state
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newItem, setNewItem] = useState({
-    name: '',
-    description: '',
-    postedBy: '',
-    userId: '',
-    price: '',
-    hasImage: false,
-    imageURL: ''
-  });
-
-  const openAddForm = () => setShowAddForm(true);
-  const closeAddForm = () => setShowAddForm(false);
-
-  const handleNewItemChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setNewItem((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  const closeAddForm = () => {
+    if (!isAddingItem) {
+      setShowAddForm(false);
+    }
   };
 
-  const submitNewItem = async (e) => {
-    e.preventDefault();
-    if (!newItem.name || newItem.price === '') {
-      alert('Please enter item name and price');
+  const handleNewItemChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    setNewItem((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  };
+
+  const submitNewItem = async (event) => {
+    event.preventDefault();
+    setNotice({ type: "info", message: "" });
+
+    const trimmedName = newItem.name.trim();
+    const parsedPrice = Number(newItem.price);
+
+    if (!trimmedName) {
+      setNotice({ type: "warning", message: "Item name is required." });
       return;
     }
 
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+      setNotice({ type: "warning", message: "Enter a valid price greater than 0." });
+      return;
+    }
+
+    setIsAddingItem(true);
     try {
-      const resp = await fetch('/api/items', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: newItem.name,
-          description: newItem.description,
-          postedBy: newItem.postedBy,
+          name: trimmedName,
+          description: newItem.description.trim(),
+          postedBy: newItem.postedBy.trim(),
           userId: user ? user.id : null,
-          price: Number(newItem.price),
-          hasImage: !!newItem.hasImage,
-          imageURL: newItem.imageURL
+          price: parsedPrice,
+          hasImage: Boolean(newItem.hasImage),
+          imageURL: newItem.imageURL.trim()
         })
       });
 
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        alert(err.message || 'Failed to add item');
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setNotice({ type: "error", message: payload.message || "Unable to add item." });
         return;
       }
 
-      const created = await resp.json();
-      // prepend to items list
-      setItems((prev) => [created, ...prev]);
-      setNewItem({ name: '', description: '', postedBy: '', userId: null, price: '', hasImage: false, imageURL: '' });
-      closeAddForm();
-    } catch (err) {
-      console.error('Error adding item', err);
-      alert('Error adding item');
+      setItems((prev) => [payload, ...prev]);
+      setNewItem(initialItemState);
+      setShowAddForm(false);
+      setNotice({ type: "success", message: "Item added successfully." });
+    } catch (error) {
+      console.error("Add item error:", error);
+      setNotice({ type: "error", message: "Network error while adding item." });
+    } finally {
+      setIsAddingItem(false);
     }
   };
 
+  const clearFilters = () => {
+    setSearch("");
+    setPriceMin("");
+    setPriceMax("");
+    setSortBy("none");
+  };
+
   return (
-    <div className="home">
-      <Navbar
-        user={user}
-        onLogout={onLogout}
-        onSearchChange={setSearch}
-        searchValue={search}
-      />
+    <div className="min-h-screen flex flex-col">
+      <Navbar user={user} onLogout={onLogout} onSearchChange={setSearch} searchValue={search} />
 
-      <main className="home__wrap">
-        <div className="home__titleRow">
-          <div>
-            <h1 className="home__title">Home</h1>
-            <p className="home__subtitle">Browse products and view details.</p>
-          </div>
-
-          {/* RIGHT SIDE: items badge + theme toggle */}
-          <div className="home__controls">
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <div className="badge">{filtered.length} items</div>
-
-              <button
-                type="button"
-                className="themeToggle arcade-btn"
-                onClick={openAddForm}
-                title="Add new item"
-                style={{ padding: '8px 14px', borderRadius: '12px', border: 'none', background: 'var(--accent-gradient)' }}
-              >
-                ➕ Add Item
-              </button>
-            </div>
-
-            <button
-              type="button"
-              className="themeToggle"
-              onClick={toggleTheme}
-              aria-label="Toggle light mode"
-              title="Toggle light/dark"
-            >
-              <span className="themeToggle__icon">{theme === "dark" ? "🌙" : "☀️"}</span>
-              <span className={`themeToggle__track ${theme === "light" ? "isOn" : ""}`}>
-                <span className="themeToggle__thumb" />
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* Add Item */}
-        {showAddForm && (
-          <div className="addItemModalOverlay">
-            <div className="addItemModalCard">
-              <h3 style={{ marginTop: 0 }}>Add New Item</h3>
-              <form onSubmit={submitNewItem}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <input name="name" placeholder="Name" value={newItem.name} onChange={handleNewItemChange} required />
-                  <input name="postedBy" placeholder="Posted By" value={newItem.postedBy} onChange={handleNewItemChange} />
-                  <input name="price" placeholder="Price" value={newItem.price} onChange={handleNewItemChange} required />
-                  <input name="imageURL" placeholder="Image URL" value={newItem.imageURL} onChange={handleNewItemChange} />
-                </div>
-                <div style={{ marginTop: 10 }}>
-                  <textarea name="description" placeholder="Description" value={newItem.description} onChange={handleNewItemChange} rows={4} style={{ width: '100%' }} />
-                </div>
-                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <input type="checkbox" name="hasImage" checked={newItem.hasImage} onChange={handleNewItemChange} /> Has Image
-                  </label>
-                </div>
-                <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                  <button type="button" onClick={closeAddForm}>Cancel</button>
-                  <button type="submit">Add Item</button>
-                </div>
-              </form>
-            </div>
+      <main className="flex-1">
+        {/* Notice Banner */}
+        {notice.message && (
+          <div className="max-w-[1440px] mx-auto px-6 mt-6">
+            <Notice
+              type={notice.type}
+              message={notice.message}
+              onDismiss={() => setNotice({ type: "info", message: "" })}
+            />
           </div>
         )}
-      
 
-        {/* Filter and Sort Controls */}
-        <div style={{
-          display: 'flex',
-          gap: '16px',
-          marginBottom: '24px',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          padding: '12px',
-          border: '1px solid var(--input-border)',
-          borderRadius: '20px',
-          backgroundColor: 'rgba(255,255,255,0.03)'
-        }}>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <label style={{ fontSize: '0.9rem' }}>Price Range:</label>
-            <input
-              type="number"
-              placeholder="Min"
-              value={priceMin}
-              onChange={(e) => setPriceMin(e.target.value)}
-              style={{
-                width: '80px',
-                padding: '6px 8px',
-                borderRadius: '20px',
-                border: '1px solid var(--input-border)',
-                backgroundColor: 'var(--input-bg)',
-                color: 'var(--home-text)',
-                fontSize: '0.9rem'
-              }}
-            />
-            <span>—</span>
-            <input
-              type="number"
-              placeholder="Max"
-              value={priceMax}
-              onChange={(e) => setPriceMax(e.target.value)}
-              style={{
-                width: '80px',
-                padding: '6px 8px',
-                borderRadius: '20px',
-                border: '1px solid var(--input-border)',
-                backgroundColor: 'var(--input-bg)',
-                color: 'var(--home-text)',
-                fontSize: '0.9rem'
-              }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <label htmlFor="sort-select" style={{ fontSize: '0.9rem' }}>Sort:</label>
-            <select
-              id="sort-select"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              style={{
-                padding: '6px 8px',
-                borderRadius: '20px',
-                border: '1px solid var(--input-border)',
-                backgroundColor: 'var(--input-bg)',
-                color: 'var(--home-text)',
-                cursor: 'pointer',
-                fontSize: '0.9rem'
-              }}
+        {/* Hero Section */}
+        <section className="relative pt-24 pb-20 px-6 max-w-[1440px] mx-auto text-center overflow-hidden rounded-2xl border border-outline-variant/30 bg-surface-container-lowest/70">
+          <CyberBackdrop mode="hero" />
+          <div className="absolute inset-0 bg-gradient-to-b from-surface-container-low/70 via-transparent to-surface/85"></div>
+          <div className="relative z-10">
+            <motion.h1
+              className="font-display text-5xl md:text-7xl lg:text-8xl tracking-tight text-primary leading-tight mb-8"
+              initial={{ opacity: 0, y: 26 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.6 }}
+              transition={{ duration: 0.7, ease: "easeOut" }}
             >
-              <option style={{ color: 'black' }} value="none">None</option>
-              <option style={{ color: 'black' }} value="price-asc">Price: Low to High</option>
-              <option style={{ color: 'black' }} value="price-desc">Price: High to Low</option>
-            </select>
+              Refining the Art of<br />
+              Everyday Tech & Home Finds
+            </motion.h1>
+            <motion.p
+              className="font-body text-xl text-on-surface-variant max-w-2xl mx-auto mb-12 font-medium"
+              initial={{ opacity: 0, y: 18 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.6 }}
+              transition={{ duration: 0.7, ease: "easeOut", delay: 0.12 }}
+            >
+              Shop phones, laptops, gaming gear, audio devices, sneakers, and furniture from trusted sellers.
+            </motion.p>
           </div>
+        </section>
 
-          <button
-            type="button"
-            onClick={() => {
-              setPriceMin("");
-              setPriceMax("");
-              setSortBy("none");
-            }}
-            style={{
-              padding: '6px 12px',
-              borderRadius: '20px',
-              border: '1px solid var(--input-border)',
-              backgroundColor: 'rgba(200, 100, 100, 0.15)',
-              color: 'var(--home-text)',
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              marginLeft: 'auto',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(200, 100, 100, 0.25)'}
-            onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(200, 100, 100, 0.15)'}
-          >
-            Clear Filters
-          </button>
-        </div>
-
-        {filtered.length === 0 && (search.trim() !== "" || priceMin !== "" || priceMax !== "" || sortBy !== "none") ? (
-          <div className="noResults">
-            No items found
-          </div>
-        ) : (
-          <div className="grid">
-            {filtered.map((item) => (
-              <div key={item.id} className="card">
-                {/* Image thumbnail */}
-                <div style={{
-                  height: '180px',
-                  marginBottom: '10px',
-                  background: 'rgba(255,255,255,0.02)',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden'
-                }}>
-                  {item.hasImage ? (
-                    <img
-                      src={item.imageURL.startsWith('http') ? item.imageURL : `${window.location.origin}${item.imageURL}`}
-                      alt={item.name}
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '100%',
-                        objectFit: 'contain'
-                      }}
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                  ) : (
-                    <div style={{ color: 'var(--home-subtext)', fontSize: '0.8rem' }}>No Image</div>
-                  )}
-                </div>
-
-                <h3 className="card__name">{item.name}</h3>
-
-                <div className="card__meta">
-                  <div className="card__price">${item.price}</div>
-                </div>
-
-                <Link className="card__link" to={`/product/${item.id}`}>
-                  View Details
-                </Link>
+        {/* Product Catalog */}
+        <section className="py-24 px-6 max-w-[1440px] mx-auto">
+          <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-outline-variant/30 pb-6 mb-12">
+            <div>
+              <h2 className="font-display text-4xl text-primary mb-2">Essential Collection</h2>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-4 mt-6 md:mt-0">
+              <div className="text-sm font-semibold uppercase tracking-widest text-on-surface-variant border-x border-outline-variant/30 px-6 py-2">
+                 {filtered.length} Items 
               </div>
-            ))}
+              <div className="flex items-center gap-4 ml-auto">
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="text-sm font-semibold uppercase tracking-widest text-primary hover:text-secondary transition-colors"
+                >
+                  {showFilters ? "HIDE FILTERS" : "FILTER & SORT"}
+                </button>
+                {(user?.role === "admin" || user) && (
+                  <button 
+                    onClick={openAddForm}
+                    className="arcade-btn"
+                  >
+                    ADD ITEM
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Filter Bar */}
+          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${showFilters ? 'max-h-[500px] mb-12 opacity-100' : 'max-h-0 mb-0 opacity-0'}`}>
+            <div className="bg-surface-container-low p-8 flex flex-wrap gap-12 items-end border-l border-primary">
+              <div>
+                <label className="block text-sm font-semibold uppercase tracking-widest text-primary mb-4">Price Range</label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={priceMin}
+                    onChange={(e) => setPriceMin(e.target.value)}
+                    className="ghost-input w-24 text-center"
+                  />
+                  <span className="text-on-surface-variant uppercase tracking-widest text-sm">to</span>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={priceMax}
+                    onChange={(e) => setPriceMax(e.target.value)}
+                    className="ghost-input w-24 text-center"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold uppercase tracking-widest text-primary mb-4">Sort By</label>
+                <select 
+                  value={sortBy} 
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="ghost-input pr-8 appearance-none bg-transparent cursor-pointer"
+                >
+                  <option value="none">Default Arrival</option>
+                  <option value="price-asc">Price: Ascending</option>
+                  <option value="price-desc">Price: Descending</option>
+                </select>
+              </div>
+
+              <div className="ml-auto">
+                <button 
+                  onClick={clearFilters}
+                  className="tertiary-btn"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Grid */}
+          {isLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-16 gap-x-8">
+              {Array.from({ length: 9 }).map((_, index) => (
+                <div key={index} className="animate-pulse">
+                  <div className="bg-surface-container-highest aspect-[4/5] w-full mb-6 relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-surface-container-highest via-surface-container-low to-surface-container-highest animate-pulse"></div>
+                  </div>
+                  <div className="h-4 bg-surface-container-highest w-3/4 mb-4"></div>
+                  <div className="h-4 bg-surface-container-highest w-1/4"></div>
+                </div>
+              ))}
+            </div>
+          ) : loadError ? (
+            <Notice type="error" message={loadError} actionLabel="Retry" onAction={loadItems} />
+          ) : filtered.length === 0 ? (
+            <div className="py-24 text-center border-y border-outline-variant/30 flex flex-col items-center justify-center">
+              <h3 className="font-display text-3xl text-primary mb-4">No pieces match your criteria</h3>
+              <p className="text-on-surface-variant font-medium">Please adjust your search filters to discover available items in the collection.</p>
+              {showFilters && (
+                <button onClick={clearFilters} className="mt-8 tertiary-btn">View Full Collection</button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-16 gap-x-8">
+              {filtered.map((item) => {
+                const rawImage = typeof item.imageURL === "string" ? item.imageURL.trim() : "";
+                const imageSrc = item.hasImage && rawImage
+                  ? rawImage.startsWith("http")
+                    ? rawImage
+                    : `${window.location.origin}${rawImage}`
+                  : "";
+
+                return (
+                  <MotionLink
+                    key={item.id}
+                    to={`/product/${item.id}`}
+                    className="group block focus-visible:outline-none focus:ring-2 focus:ring-secondary/50 focus:ring-offset-8"
+                    whileHover={{ y: -8, rotateX: 2, rotateY: -2, scale: 1.01 }}
+                    whileTap={{ scale: 0.995 }}
+                    transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                  >
+                    <div className="bg-surface relative aspect-[4/5] mb-6 overflow-hidden">
+                       {imageSrc ? (
+                        <img
+                          src={imageSrc}
+                          alt={item.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                          onError={(e) => { e.currentTarget.style.display = "none"; }}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-surface-container-high flex flex-col items-center justify-center text-outline group-hover:scale-105 transition-transform duration-700 font-display">
+                          Shoply <br/>
+                          <span className="font-body text-xs mt-2 uppercase tracking-widest text-outline-variant">Product Record</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex justify-between items-start">
+                      <div className="pr-4">
+                        <h3 className="font-display text-xl text-primary mb-1 group-hover:text-secondary transition-colors line-clamp-2">{item.name}</h3>
+                        {item.postedBy && <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-widest">Seller: {item.postedBy}</p>}
+                      </div>
+                      <div className="font-body font-semibold text-primary pt-1 whitespace-nowrap">
+                        ${Number(item.price).toFixed(2)}
+                      </div>
+                    </div>
+                  </MotionLink>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Add Item Modal Overlay */}
+        {showAddForm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto" onClick={(e) => e.target === e.currentTarget && closeAddForm()}>
+            <div className="bg-surface-container-lowest w-full max-w-2xl shadow-lift my-8 animate-in fade-in zoom-in-95 duration-200">
+              <div className="px-8 py-6 border-b border-outline-variant/30 flex justify-between items-center bg-surface-container-low">
+                <h3 className="font-display text-2xl text-primary">Catalog Entry</h3>
+                <button onClick={closeAddForm} className="text-on-surface-variant hover:text-primary transition-colors text-3xl font-light leading-none">&times;</button>
+              </div>
+              
+              <div className="p-8">
+                <p className="font-body text-on-surface-variant mb-8 font-medium">Publish a new piece to the collection.</p>
+                
+                <form onSubmit={submitNewItem} className="space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <label className="label-md block mb-2">Title *</label>
+                      <input name="name" className="ghost-input w-full" placeholder="e.g. Sculptural Wool Overcoat" value={newItem.name} onChange={handleNewItemChange} required />
+                    </div>
+                    <div>
+                      <label className="label-md block mb-2">Price *</label>
+                      <input name="price" className="ghost-input w-full" placeholder="0.00" type="number" step="0.01" value={newItem.price} onChange={handleNewItemChange} required />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <label className="label-md block mb-2">Seller</label>
+                      <input name="postedBy" className="ghost-input w-full" placeholder="Shoply" value={newItem.postedBy} onChange={handleNewItemChange} />
+                    </div>
+                    <div>
+                      <label className="label-md block mb-2">Image Reference URL</label>
+                      <input name="imageURL" className="ghost-input w-full" placeholder="https://..." value={newItem.imageURL} onChange={handleNewItemChange} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="label-md block mb-2">Description</label>
+                    <textarea name="description" className="ghost-input w-full resize-y" placeholder="Crafted from Italian wool..." value={newItem.description} onChange={handleNewItemChange} rows={4} />
+                  </div>
+                  
+                  <label className="flex items-center gap-3 cursor-pointer mt-4">
+                    <input type="checkbox" name="hasImage" className="w-5 h-5 accent-secondary border-outline-variant" checked={newItem.hasImage} onChange={handleNewItemChange} />
+                    <span className="font-medium text-primary">Media attached to this record</span>
+                  </label>
+                  
+                  <div className="pt-8 mt-4 border-t border-outline-variant/30 flex justify-end gap-6 items-center">
+                    <button type="button" className="tertiary-btn border-outline-variant text-on-surface-variant py-2 hover:text-primary transition-colors" onClick={closeAddForm} disabled={isAddingItem}>
+                      Cancel
+                    </button>
+                    <button type="submit" className="arcade-btn" disabled={isAddingItem}>
+                      {isAddingItem ? "Publishing..." : "Submit to Catalog"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
           </div>
         )}
       </main>
 
-      {/* footer for bottom space */}
-      <footer className="footer">
-        <div className="footer__inner">
-          <div className="footer__brand">shoply</div>
-          <div className="footer__muted">
-            demo e-commerce platform · cps630
-          </div>
-
-          <div className="footer__links">
-            <a className="footer__link" >Hotline</a>
-            <a className="footer__link" >Email</a>
-            <a className="footer__link" >Feedback</a>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

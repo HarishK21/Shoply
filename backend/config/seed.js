@@ -1,44 +1,76 @@
 const Item = require('../models/Item');
 const User = require('../models/User');
+const { hashPassword } = require('../utils/auth');
+const fs = require('fs');
+const path = require('path');
 
-// Initial users to seed if DB is empty
-const initialUsers = [
-    {
-        id: 1,
-        name: "admin521",
-        email: "admin521@gmail.com",
-        password: "521admin521",
-        role: "admin"
-    },
-    {
-        id: 2,
-        name: "Gill123",
-        email: "gill123@gmail.com",
-        password: "S1234",
-        role: "user"
-    },
-    {
-        id: 3,
-        name: "test123",
-        email: "test123@gmail.com",
-        password: "test123",
-        role: "user"
-    },
-    {
-        id: 4,
-        name: "Admin",
-        email: "admin@gmail.com",
-        password: "admin123",
-        role: "admin"
-    },
-    {
-        id: 5,
-        name: "Test",
-        email: "unique_verify_2026@demo.com",
-        password: "password",
-        role: "user"
+const PUBLIC_SEED_FILE = path.join(__dirname, '../data/users.json');
+
+const normalizeSeedUsers = (entries) => entries
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry) => {
+        const id = Number.parseInt(entry.id, 10);
+        const name = String(entry.name || '').trim();
+        const email = String(entry.email || '').trim().toLowerCase();
+        const password = String(entry.password || '');
+        const role = entry.role === 'admin' ? 'admin' : 'user';
+
+        if (!name || !email || !password) {
+            return null;
+        }
+
+        const normalized = {
+            name,
+            email,
+            password: hashPassword(password),
+            role
+        };
+
+        if (Number.isInteger(id) && id > 0) {
+            normalized.id = id;
+        }
+
+        return normalized;
+    })
+    .filter(Boolean);
+
+const parseFileSeedUsers = () => {
+    if (!fs.existsSync(PUBLIC_SEED_FILE)) {
+        return [];
     }
-];
+
+    try {
+        const parsed = JSON.parse(fs.readFileSync(PUBLIC_SEED_FILE, 'utf8'));
+        if (!Array.isArray(parsed)) {
+            console.warn('Seed file is not an array. Skipping file-based user seed.');
+            return [];
+        }
+        return normalizeSeedUsers(parsed);
+    } catch (error) {
+        console.warn('Failed to parse seed user file. Skipping file-based user seed.');
+        return [];
+    }
+};
+
+const parseSeedUsers = () => {
+    const raw = process.env.SEED_USERS_JSON;
+    if (!raw) {
+        return parseFileSeedUsers();
+    }
+
+    try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) {
+            console.warn('SEED_USERS_JSON is not an array. Skipping user seed.');
+            return [];
+        }
+
+        return normalizeSeedUsers(parsed);
+    } catch (error) {
+        console.warn('SEED_USERS_JSON is invalid JSON. Skipping user seed.');
+        return [];
+    }
+};
 
 // Initial data to seed if DB is empty
 const initialItems = [
@@ -128,15 +160,21 @@ const initialItems = [
 // Seed Database Function
 const seedDatabase = async () => {
     try {
+        const initialUsers = parseSeedUsers();
+
         // Seed users
         const userCount = await User.countDocuments();
         if (userCount === 0) {
-            console.log('No users found. Seeding initial users...');
-            for (let i = 0; i < initialUsers.length; i++) {
-                const newUser = new User(initialUsers[i]);
-                await newUser.save();
+            if (initialUsers.length === 0) {
+                console.log('No users found and no valid seed source was provided. Skipping user seed.');
+            } else {
+                console.log('No users found. Seeding initial users...');
+                for (let i = 0; i < initialUsers.length; i++) {
+                    const newUser = new User(initialUsers[i]);
+                    await newUser.save();
+                }
+                console.log(`Seeded ${initialUsers.length} users successfully!`);
             }
-            console.log(`Seeded ${initialUsers.length} users successfully!`);
         } else {
             console.log(`Database already has ${userCount} users. Skipping user seed.`);
         }
