@@ -146,9 +146,8 @@ export default function Home() {
 
     setIsAddingItem(true);
     try {
-      const response = await fetch("/api/items", {
+      const response = await apiFetch("/api/items", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: trimmedName,
           description: newItem.description.trim(),

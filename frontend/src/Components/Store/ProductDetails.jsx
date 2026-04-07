@@ -101,7 +101,7 @@ export default function ProductDetails() {
     setIsDeleting(true);
     setNotice({ type: "info", message: "" });
     try {
-      const response = await fetch(`/api/items/${product.id}`, { method: "DELETE" });
+      const response = await apiFetch(`/api/items/${product.id}`, { method: "DELETE" });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         throw new Error(payload.message || "Failed to delete product.");
@@ -151,9 +151,8 @@ export default function ProductDetails() {
 
     setIsSavingEdit(true);
     try {
-      const response = await fetch(`/api/items/${product.id}`, {
+      const response = await apiFetch(`/api/items/${product.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: editData.name.trim(),
           description: editData.description.trim(),

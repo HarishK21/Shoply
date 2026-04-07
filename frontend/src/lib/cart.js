@@ -1,4 +1,4 @@
-import { apiFetch, clearAuthSession } from './auth';
+import { apiFetch, clearAuthSession, getAuthToken } from './auth';
 
 const readResponse = async (response) => {
   let payload = {};
@@ -23,6 +23,7 @@ const ensureSuccess = async (response) => {
 };
 
 export const fetchCart = async () => {
+  if (!getAuthToken()) return [];
   const response = await apiFetch('/api/cart');
   const payload = await ensureSuccess(response);
   return Array.isArray(payload.items) ? payload.items : [];
