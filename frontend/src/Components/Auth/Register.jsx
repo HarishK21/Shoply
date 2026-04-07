@@ -21,8 +21,8 @@ export default function Register() {
       return setNotice({ type: "warning", message: "Please fill in all fields." });
     }
 
-    if (password.length < 6) {
-      return setNotice({ type: "warning", message: "Password must be at least 6 characters." });
+    if (password.length < 8) {
+      return setNotice({ type: "warning", message: "Password must be at least 8 characters." });
     }
 
     setIsLoading(true);
@@ -120,7 +120,7 @@ export default function Register() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="ghost-input w-full"
                 required
-                minLength={6}
+                minLength={8}
               />
             </div>
 

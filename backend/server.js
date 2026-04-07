@@ -43,7 +43,7 @@ const io = new Server(httpServer, {
 const PORT = Number(process.env.PORT) || 8080;
 const SESSION_TTL_MS = Number.parseInt(process.env.SESSION_TTL_MS, 10) || (1000 * 60 * 60 * 24 * 7); // 7 days
 
-const { apiRateLimiter, authRateLimiter } = setupMiddleware(app);
+setupMiddleware(app);
 setupRealtimeSocket(io);
 
 const getOrCreateCart = async (userId) => {
@@ -103,13 +103,8 @@ app.get('/', (req, res) => {
     res.json({ status: 'ok', message: 'Shoply API is running' });
 });
 
-app.use('/api', apiRateLimiter);
-
-// Product + order routes
-app.use('/api/items', itemRoutes);
-
 // Register user endpoint
-app.post('/api/register', authRateLimiter, async (req, res) => {
+app.post('/api/register', async (req, res) => {
     try {
         const { name, email, password } = sanitizeRegisterPayload(req.body);
 
@@ -127,9 +122,19 @@ app.post('/api/register', authRateLimiter, async (req, res) => {
         await newUser.save();
         console.log('New user registered:', { name: newUser.name, email });
 
+        // Auto-login: create a session and return token + user so the frontend can proceed.
+        const token = createAuthToken();
+        await AuthSession.create({
+            userId: newUser.id,
+            tokenHash: hashAuthToken(token),
+            expiresAt: new Date(Date.now() + SESSION_TTL_MS)
+        });
+
         return res.status(201).json({
             success: true,
-            message: 'Registration successful! You can now login.'
+            message: 'Registration successful!',
+            token,
+            user: { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role }
         });
     } catch (error) {
         if (handleValidationError(error, res)) return;
@@ -139,7 +144,7 @@ app.post('/api/register', authRateLimiter, async (req, res) => {
 });
 
 // User login endpoint
-app.post('/api/login', authRateLimiter, async (req, res) => {
+app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = sanitizeLoginPayload(req.body);
         const user = await User.findOne({ email });
@@ -182,6 +187,9 @@ app.post('/api/login', authRateLimiter, async (req, res) => {
 app.get('/api/me', requireAuth, async (req, res) => {
     return res.status(200).json({ success: true, user: req.authUser });
 });
+
+// Product + order routes
+app.use('/api/items', itemRoutes);
 
 // Create new order
 app.post('/api/order', requireAuth, async (req, res) => {
@@ -236,7 +244,7 @@ app.get('/api/orders/:userID', requireAuth, async (req, res) => {
 });
 
 // Logout endpoint
-app.post('/api/logout', authRateLimiter, requireAuth, async (req, res) => {
+app.post('/api/logout', requireAuth, async (req, res) => {
     try {
         await AuthSession.deleteOne({ tokenHash: req.tokenHash });
         return res.status(200).json({ success: true, message: 'Logged out successfully' });
