@@ -1,4 +1,19 @@
 # Shoply E-Commerce Site
+<img width="1902" height="996" alt="image" src="https://github.com/user-attachments/assets/25f2cf00-b488-40ad-ba96-966dd83d0c03" />
+
+## 📸 App Previews
+
+### Homepage
+![Homepage preview](frontend/public/images/previews/homepage.png)
+
+### Login Page
+![Login page preview](frontend/public/images/previews/login_page.png)
+
+### Product Page
+![Product page preview](frontend/public/images/previews/product_page.png)
+
+### Checkout Page
+![Checkout page preview](frontend/public/images/previews/checkout_page.png)
 
 ## 📜 Overview
 
