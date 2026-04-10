@@ -6,7 +6,7 @@ const { Server } = require('socket.io');
 
 const connectDB = require('./config/database');
 const seedDatabase = require('./config/seed');
-const setupMiddleware = require('./middleware');
+const { setupMiddleware, errorHandler, notFound } = require('./middleware');
 const { requireAuth } = require('./middleware/auth');
 const setupRealtimeSocket = require('./realtime/socket');
 const {
@@ -364,9 +364,10 @@ app.delete('/api/cart', requireAuth, async (req, res) => {
 });
 
 // 404 fallback for unknown API routes
-app.use('/api', (req, res) => {
-    res.status(404).json({ success: false, message: 'API endpoint not found' });
-});
+app.use('/api', notFound);
+
+// Global error handler (must be after all routes)
+app.use(errorHandler);
 
 // Start server after database connection
 const startServer = async () => {

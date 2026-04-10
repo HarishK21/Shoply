@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
+const { errorHandler, notFound } = require('./errorHandler');
 
 const toPositiveInt = (value, fallback) => {
     const parsed = Number.parseInt(value, 10);
@@ -97,5 +98,5 @@ const setupMiddleware = (app) => {
     };
 };
 
-module.exports = setupMiddleware;
+module.exports = { setupMiddleware, errorHandler, notFound };
 
