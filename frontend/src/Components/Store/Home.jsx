@@ -5,6 +5,7 @@ import Notice from "../UI/Notice";
 import Navbar from "./Navbar";
 import Footer from "../UI/Footer";
 import CyberBackdrop from "../UI/CyberBackdrop";
+import LoadingSpinner from "../UI/LoadingSpinner";
 import { apiFetch, clearAuthSession, getAuthToken, getStoredUser } from "../../lib/auth";
 
 const initialItemState = {
@@ -307,16 +308,9 @@ export default function Home() {
 
           {/* Grid */}
           {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-16 gap-x-8">
-              {Array.from({ length: 9 }).map((_, index) => (
-                <div key={index} className="animate-pulse">
-                  <div className="bg-surface-container-highest aspect-[4/5] w-full mb-6 relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-r from-surface-container-highest via-surface-container-low to-surface-container-highest animate-pulse"></div>
-                  </div>
-                  <div className="h-4 bg-surface-container-highest w-3/4 mb-4"></div>
-                  <div className="h-4 bg-surface-container-highest w-1/4"></div>
-                </div>
-              ))}
+            <div className="flex flex-col items-center justify-center py-16">
+              <LoadingSpinner size="xl" color="blue" />
+              <p className="mt-4 text-gray-400">Loading products...</p>
             </div>
           ) : loadError ? (
             <Notice type="error" message={loadError} actionLabel="Retry" onAction={loadItems} />
