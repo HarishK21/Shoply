@@ -175,16 +175,18 @@ Protected endpoints require `Authorization: Bearer <token>`.
 
 ## 💭 Reflection
 
-Overall, this was our very first MERN stack project MongoDB + Express + React + Node.js of this scale. It was quite the exciting experience being able to utilize the full stack we learned to create a functional E-Commerce platform. Being able to use React + Express really simplifies and makes the code more modular and reusable compared to plain HTML, CSS and JavaScript. Compared to using a JSON list or MySQL, MongoDB felt more modern and compelling because its document-based design allows data to be stored and managed more flexibly.
+Overall, this was our first MERN stack project MongoDB + Express + React + Node.js of this scale. It was quite the exciting experience being able to utilize the full stack we learned to create a functional E-Commerce platform. Being able to use React + Express really simplifies and makes the code more modular and reusable compared to plain HTML, CSS and JavaScript. Compared to using a JSON list or MySQL, MongoDB felt more modern and compelling because its document-based design allows data to be stored and managed more flexibly. 
 
-Along the way we had many different challenges and successes, mainly with the setup process and the final integration with all the components and the MongoDB database. Though, in the end, with a little bit of patience, thinking, and collaberation we were able to overcome these issues and create a working product. Overall, this was a great experience for us all, and we were all able to contribute well and learn along the way while making this project.
+To add onto the second project, we were able to implement full Authentication, Real Time Communication via a web socket, proper error handling, and a complete, refined UI as defined by the Nielson usability principles.
+
+Along the way, we had many different challenges and successes, mainly with the setup process, new components like the Web Sockets, and the final integration with all the components and the MongoDB database. Though, in the end, with a little bit of patience, thinking, and collaberation we were able to overcome these issues and create a working product. Overall, this was a great experience for us all, and we were all able to contribute well and learn along the way while making this project.
 
 ## 💡 Future Enhancements
 
-- Further enhance UI
-- Payment Integration
+- Further enhance UI: product categories, clearance section
+- Payment Integration: stripe
 - Additional anti-abuse features: captcha codes, security questions
-- User management menu
+- User management menu: accounts, passwords, payment methods
 
 ---
 
